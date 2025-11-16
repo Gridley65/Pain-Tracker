@@ -27,6 +27,7 @@
       const [activeView, setActiveView] = useState('calendar');
       const [darkMode, setDarkMode] = useState(false);
       const [medHistory, setMedHistory] = useState([]);
+      const [apptHistory, setApptHistory] = useState([]);
 
       useEffect(() => {
         try {
@@ -36,6 +37,8 @@
           if (d) setDarkMode(JSON.parse(d));
           const m = localStorage.getItem('medHistory');
           if (m) setMedHistory(JSON.parse(m));
+          const a = localStorage.getItem('apptHistory');
+          if (a) setApptHistory(JSON.parse(a));
         } catch (err) {}
       }, []);
 
@@ -49,7 +52,8 @@
             triggers: [], 
             barometric: { pressure: '', trend: null },
             notes: '', 
-            medications: '' 
+            medications: '',
+            appointments: ''
           });
         }
       }, [selectedDate, entries]);
@@ -67,6 +71,8 @@
         const key = `${selectedDate.getFullYear()}-${selectedDate.getMonth()}-${selectedDate.getDate()}`;
         
         const oldEntry = entries[key];
+        
+        // Track medication changes
         if (currentEntry.medications && currentEntry.medications !== oldEntry?.medications) {
           const newHistory = [...medHistory, {
             date: selectedDate.toLocaleDateString(),
@@ -76,6 +82,18 @@
           }];
           localStorage.setItem('medHistory', JSON.stringify(newHistory));
           setMedHistory(newHistory);
+        }
+        
+        // Track appointment changes
+        if (currentEntry.appointments && currentEntry.appointments !== oldEntry?.appointments) {
+          const newApptHistory = [...apptHistory, {
+            date: selectedDate.toLocaleDateString(),
+            appointments: currentEntry.appointments,
+            painLevels: currentEntry.painLevels,
+            timestamp: Date.now()
+          }];
+          localStorage.setItem('apptHistory', JSON.stringify(newApptHistory));
+          setApptHistory(newApptHistory);
         }
         
         const newEntries = { ...entries, [key]: currentEntry };
@@ -103,7 +121,7 @@
           <div className={`max-w-2xl mx-auto ${bg} min-h-screen`}>
             <div className={`${card} p-4 flex justify-between items-center`}>
               <h2 className={`text-xl font-medium ${text}`}>
-                {selectedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
+                {selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
               </h2>
               <button onClick={() => setSelectedDate(null)} className="text-blue-600">Cancel</button>
             </div>
@@ -220,7 +238,7 @@
 
               <div>
                 <h3 className={`text-lg font-medium mb-3 ${text}`}>Barometric Pressure</h3>
-                <div className="flex gap-3 items-center">
+                <div className="flex gap-2 items-center">
                   <input
                     type="text"
                     value={currentEntry.barometric?.pressure || ''}
@@ -228,8 +246,8 @@
                       ...currentEntry, 
                       barometric: { ...currentEntry.barometric, pressure: e.target.value }
                     })}
-                    placeholder="e.g., 30.12"
-                    className={`flex-1 p-3 border-2 ${border} ${card} ${text} rounded-lg`}
+                    placeholder="30.12"
+                    className={`w-24 p-3 border-2 ${border} ${card} ${text} rounded-lg`}
                   />
                   <button
                     onClick={() => setCurrentEntry({ 
@@ -288,6 +306,18 @@
                   placeholder="Medications..." 
                 />
                 <div className={`text-sm ${muted} text-right`}>{currentEntry.medications.length}/240</div>
+              </div>
+
+              <div>
+                <h3 className={`text-lg font-medium mb-3 ${text}`}>Medical Appointments</h3>
+                <textarea 
+                  value={currentEntry.appointments} 
+                  onChange={(e) => e.target.value.length <= 440 && setCurrentEntry({ ...currentEntry, appointments: e.target.value })}
+                  className={`w-full p-3 border-2 ${border} ${card} ${text} rounded-lg`} 
+                  rows="4" 
+                  placeholder="Appointments, procedures, tests..." 
+                />
+                <div className={`text-sm ${muted} text-right`}>{currentEntry.appointments.length}/440</div>
               </div>
 
               <button onClick={save} className="w-full bg-blue-600 text-white py-4 rounded-lg font-medium">
@@ -449,24 +479,49 @@
           )}
 
           {activeView === 'medHistory' && (
-            <div className={`${card} p-4 pb-24`}>
-              <h2 className={`text-2xl font-medium mb-6 ${text}`}>Medication History</h2>
-              {medHistory.length === 0 ? (
-                <p className={`${muted} text-center py-12`}>No medication changes recorded yet</p>
-              ) : (
-                <div className="space-y-4">
-                  {medHistory.slice().reverse().map((record, idx) => (
-                    <div key={idx} className={`${darkMode ? 'bg-gray-700' : 'bg-gray-50'} rounded-lg p-4 border ${border}`}>
-                      <div className="flex justify-between items-start mb-2">
-                        <span className={`font-medium ${text}`}>{record.date}</span>
-                        {record.painLevels?.length > 0 && (
-                          <span className={`text-sm ${muted}`}>Pain: {record.painLevels.join(', ')}</span>
-                        )}
+            <div className={`${card} p-4 pb-24 overflow-y-auto`}>
+              <h2 className={`text-2xl font-medium mb-6 ${text}`}>Medical History</h2>
+              
+              {medHistory.length > 0 && (
+                <div className="mb-8">
+                  <h3 className={`text-lg font-medium mb-3 ${text}`}>Medications</h3>
+                  <div className="space-y-4">
+                    {medHistory.slice().reverse().map((record, idx) => (
+                      <div key={idx} className={`${darkMode ? 'bg-gray-700' : 'bg-gray-50'} rounded-lg p-4 border ${border}`}>
+                        <div className="flex justify-between items-start mb-2">
+                          <span className={`font-medium ${text}`}>{record.date}</span>
+                          {record.painLevels?.length > 0 && (
+                            <span className={`text-sm ${muted}`}>Pain: {record.painLevels.join(', ')}</span>
+                          )}
+                        </div>
+                        <p className={`${text} text-sm`}>{record.medications}</p>
                       </div>
-                      <p className={`${text} text-sm`}>{record.medications}</p>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
+              )}
+
+              {apptHistory.length > 0 && (
+                <div>
+                  <h3 className={`text-lg font-medium mb-3 ${text}`}>Appointments</h3>
+                  <div className="space-y-4">
+                    {apptHistory.slice().reverse().map((record, idx) => (
+                      <div key={idx} className={`${darkMode ? 'bg-gray-700' : 'bg-gray-50'} rounded-lg p-4 border ${border}`}>
+                        <div className="flex justify-between items-start mb-2">
+                          <span className={`font-medium ${text}`}>{record.date}</span>
+                          {record.painLevels?.length > 0 && (
+                            <span className={`text-sm ${muted}`}>Pain: {record.painLevels.join(', ')}</span>
+                          )}
+                        </div>
+                        <p className={`${text} text-sm`}>{record.appointments}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {medHistory.length === 0 && apptHistory.length === 0 && (
+                <p className={`${muted} text-center py-12`}>No medical history recorded yet</p>
               )}
             </div>
           )}
@@ -490,8 +545,8 @@
               onClick={() => setActiveView('medHistory')} 
               className={`flex-1 py-4 flex flex-col items-center gap-1 ${activeView === 'medHistory' ? 'text-blue-600' : muted}`}
             >
-              <span className="text-2xl">💊</span>
-              <span className="text-xs">Med History</span>
+              <span className="text-2xl">🏥</span>
+              <span className="text-xs">History</span>
             </button>
           </div>
         </div>
