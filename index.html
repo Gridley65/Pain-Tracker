@@ -45,18 +45,34 @@
       useEffect(() => {
         if (selectedDate) {
           const key = `${selectedDate.getFullYear()}-${selectedDate.getMonth()}-${selectedDate.getDate()}`;
-          setCurrentEntry(entries[key] || { 
-            painLevels: [], 
-            sleep: { quality: null, naps: [] }, 
-            locations: [], 
-            triggers: [], 
-            barometric: { pressure: '', trend: null },
-            notes: '', 
-            medications: '',
-            appointments: ''
-          });
+          const existingEntry = entries[key];
+          if (existingEntry) {
+            // Load existing entry
+            setCurrentEntry({
+              painLevels: existingEntry.painLevels || [],
+              sleep: existingEntry.sleep || { quality: null, naps: [] },
+              locations: existingEntry.locations || [],
+              triggers: existingEntry.triggers || [],
+              barometric: existingEntry.barometric || { pressure: '', trend: null },
+              notes: existingEntry.notes || '',
+              medications: existingEntry.medications || '',
+              appointments: existingEntry.appointments || ''
+            });
+          } else {
+            // New entry
+            setCurrentEntry({ 
+              painLevels: [], 
+              sleep: { quality: null, naps: [] }, 
+              locations: [], 
+              triggers: [], 
+              barometric: { pressure: '', trend: null },
+              notes: '', 
+              medications: '',
+              appointments: ''
+            });
+          }
         }
-      }, [selectedDate, entries]);
+      }, [selectedDate]);
 
       const painLevels = [
         { level: 10, color: 'bg-purple-600', title: 'Excruciating', desc: 'Take me to the ER' },
