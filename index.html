@@ -28,6 +28,7 @@
       const [darkMode, setDarkMode] = useState(false);
       const [medHistory, setMedHistory] = useState([]);
       const [apptHistory, setApptHistory] = useState([]);
+      const [showWeatherDetail, setShowWeatherDetail] = useState(false);
 
       useEffect(() => {
         try {
@@ -66,6 +67,7 @@
               locations: [], 
               triggers: [], 
               barometric: { pressure: '', trend: null },
+              weatherNotes: '',
               notes: '', 
               medications: '',
               appointments: ''
@@ -133,6 +135,87 @@
       const border = darkMode ? 'border-gray-700' : 'border-gray-200';
 
       if (selectedDate && currentEntry) {
+        // Weather detail view
+        if (showWeatherDetail) {
+          return (
+            <div className={`max-w-2xl mx-auto ${bg} min-h-screen`}>
+              <div className={`${card} p-4 flex justify-between items-center`}>
+                <h2 className={`text-xl font-medium ${text}`}>Weather Details</h2>
+                <button onClick={() => setShowWeatherDetail(false)} className="text-blue-600">Back</button>
+              </div>
+              <div className="p-4 space-y-6 pb-24">
+                <div>
+                  <h3 className={`text-lg font-medium mb-3 ${text}`}>Barometric Pressure</h3>
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      value={currentEntry.barometric?.pressure || ''}
+                      onChange={(e) => setCurrentEntry({ 
+                        ...currentEntry, 
+                        barometric: { ...currentEntry.barometric, pressure: e.target.value }
+                      })}
+                      placeholder="30.12"
+                      className={`w-24 p-3 border-2 ${border} ${card} ${text} rounded-lg`}
+                    />
+                    <button
+                      onClick={() => setCurrentEntry({ 
+                        ...currentEntry, 
+                        barometric: { 
+                          ...currentEntry.barometric, 
+                          trend: currentEntry.barometric?.trend === 'up' ? null : 'up' 
+                        }
+                      })}
+                      className={`p-3 rounded-lg border-2 ${
+                        currentEntry.barometric?.trend === 'up' 
+                          ? 'bg-blue-500 border-blue-600 text-white' 
+                          : `${card} ${border} ${text}`
+                      }`}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      onClick={() => setCurrentEntry({ 
+                        ...currentEntry, 
+                        barometric: { 
+                          ...currentEntry.barometric, 
+                          trend: currentEntry.barometric?.trend === 'down' ? null : 'down' 
+                        }
+                      })}
+                      className={`p-3 rounded-lg border-2 ${
+                        currentEntry.barometric?.trend === 'down' 
+                          ? 'bg-red-500 border-red-600 text-white' 
+                          : `${card} ${border} ${text}`
+                      }`}
+                    >
+                      ↓
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className={`text-lg font-medium mb-3 ${text}`}>Today's Weather</h3>
+                  <textarea 
+                    value={currentEntry.weatherNotes || ''} 
+                    onChange={(e) => e.target.value.length <= 220 && setCurrentEntry({ ...currentEntry, weatherNotes: e.target.value })}
+                    className={`w-full p-3 border-2 ${border} ${card} ${text} rounded-lg`} 
+                    rows="4" 
+                    placeholder="Describe today's weather changes..." 
+                  />
+                  <div className={`text-sm ${muted} text-right`}>{(currentEntry.weatherNotes || '').length}/220</div>
+                </div>
+
+                <button 
+                  onClick={() => setShowWeatherDetail(false)} 
+                  className="w-full bg-blue-600 text-white py-4 rounded-lg font-medium"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          );
+        }
+
+        // Main entry view
         return (
           <div className={`max-w-2xl mx-auto ${bg} min-h-screen`}>
             <div className={`${card} p-4 flex justify-between items-center`}>
@@ -236,12 +319,24 @@
                   {['Activity', 'Stress', 'Exercise', 'Weather', 'Public Speaking'].map(t => (
                     <button 
                       key={t} 
-                      onClick={() => setCurrentEntry({ 
-                        ...currentEntry, 
-                        triggers: currentEntry.triggers.includes(t) 
-                          ? currentEntry.triggers.filter(x => x !== t) 
-                          : [...currentEntry.triggers, t] 
-                      })}
+                      onClick={() => {
+                        if (t === 'Weather') {
+                          // Toggle weather trigger
+                          const newTriggers = currentEntry.triggers.includes(t) 
+                            ? currentEntry.triggers.filter(x => x !== t) 
+                            : [...currentEntry.triggers, t];
+                          setCurrentEntry({ ...currentEntry, triggers: newTriggers });
+                          // Open weather detail view
+                          setShowWeatherDetail(true);
+                        } else {
+                          setCurrentEntry({ 
+                            ...currentEntry, 
+                            triggers: currentEntry.triggers.includes(t) 
+                              ? currentEntry.triggers.filter(x => x !== t) 
+                              : [...currentEntry.triggers, t] 
+                          });
+                        }
+                      }}
                       className={`px-3 py-2 text-sm rounded-lg border-2 ${
                         currentEntry.triggers.includes(t) ? 'bg-orange-500 text-white' : `${card} ${border} ${text}`
                       }`}
@@ -250,10 +345,16 @@
                     </button>
                   ))}
                 </div>
+                {currentEntry.triggers.includes('Weather') && currentEntry.weatherNotes && (
+                  <div className={`mt-2 text-sm ${muted} italic`}>
+                    Weather notes: {currentEntry.weatherNotes.substring(0, 50)}{currentEntry.weatherNotes.length > 50 ? '...' : ''}
+                  </div>
+                )}
               </div>
 
               <div>
                 <h3 className={`text-lg font-medium mb-3 ${text}`}>Barometric Pressure</h3>
+                <p className={`text-sm ${muted} mb-2`}>Track via Weather trigger above</p>
                 <div className="flex gap-2 items-center">
                   <input
                     type="text"
