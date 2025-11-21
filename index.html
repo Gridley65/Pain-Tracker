@@ -1,3 +1,4 @@
+Of course! Here's the complete updated code:
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -48,19 +49,18 @@
           const key = `${selectedDate.getFullYear()}-${selectedDate.getMonth()}-${selectedDate.getDate()}`;
           const existingEntry = entries[key];
           if (existingEntry) {
-            // Load existing entry
             setCurrentEntry({
               painLevels: existingEntry.painLevels || [],
               sleep: existingEntry.sleep || { quality: null, naps: [] },
               locations: existingEntry.locations || [],
               triggers: existingEntry.triggers || [],
               barometric: existingEntry.barometric || { pressure: '', trend: null },
+              weatherNotes: existingEntry.weatherNotes || '',
               notes: existingEntry.notes || '',
               medications: existingEntry.medications || '',
               appointments: existingEntry.appointments || ''
             });
           } else {
-            // New entry
             setCurrentEntry({ 
               painLevels: [], 
               sleep: { quality: null, naps: [] }, 
@@ -90,7 +90,6 @@
         
         const oldEntry = entries[key];
         
-        // Track medication changes
         if (currentEntry.medications && currentEntry.medications !== oldEntry?.medications) {
           const newHistory = [...medHistory, {
             date: selectedDate.toLocaleDateString(),
@@ -102,7 +101,6 @@
           setMedHistory(newHistory);
         }
         
-        // Track appointment changes
         if (currentEntry.appointments && currentEntry.appointments !== oldEntry?.appointments) {
           const newApptHistory = [...apptHistory, {
             date: selectedDate.toLocaleDateString(),
@@ -135,7 +133,6 @@
       const border = darkMode ? 'border-gray-700' : 'border-gray-200';
 
       if (selectedDate && currentEntry) {
-        // Weather detail view
         if (showWeatherDetail) {
           return (
             <div className={`max-w-2xl mx-auto ${bg} min-h-screen`}>
@@ -215,7 +212,6 @@
           );
         }
 
-        // Main entry view
         return (
           <div className={`max-w-2xl mx-auto ${bg} min-h-screen`}>
             <div className={`${card} p-4 flex justify-between items-center`}>
@@ -268,6 +264,7 @@
                     </button>
                   ))}
                 </div>
+                <p className={`text-sm font-medium ${text} mb-2`}>Naps</p>
                 <div className="flex gap-2">
                   {['Morning', 'Afternoon', 'Evening'].map(t => (
                     <button 
@@ -321,12 +318,10 @@
                       key={t} 
                       onClick={() => {
                         if (t === 'Weather') {
-                          // Toggle weather trigger
                           const newTriggers = currentEntry.triggers.includes(t) 
                             ? currentEntry.triggers.filter(x => x !== t) 
                             : [...currentEntry.triggers, t];
                           setCurrentEntry({ ...currentEntry, triggers: newTriggers });
-                          // Open weather detail view
                           setShowWeatherDetail(true);
                         } else {
                           setCurrentEntry({ 
@@ -345,60 +340,20 @@
                     </button>
                   ))}
                 </div>
-                {currentEntry.triggers.includes('Weather') && currentEntry.weatherNotes && (
-                  <div className={`mt-2 text-sm ${muted} italic`}>
-                    Weather notes: {currentEntry.weatherNotes.substring(0, 50)}{currentEntry.weatherNotes.length > 50 ? '...' : ''}
+                {currentEntry.triggers.includes('Weather') && (
+                  <div className={`mt-4 p-3 ${darkMode ? 'bg-gray-700' : 'bg-gray-50'} rounded-lg border ${border}`}>
+                    <div className={`text-sm font-medium ${text} mb-1`}>Weather Details:</div>
+                    {currentEntry.barometric?.pressure && (
+                      <div className={`text-sm ${text}`}>Pressure: {currentEntry.barometric.pressure} {currentEntry.barometric?.trend === 'up' ? '↑' : currentEntry.barometric?.trend === 'down' ? '↓' : ''}</div>
+                    )}
+                    {currentEntry.weatherNotes && (
+                      <div className={`text-sm ${text}`}>{currentEntry.weatherNotes}</div>
+                    )}
+                    {!currentEntry.barometric?.pressure && !currentEntry.weatherNotes && (
+                      <div className={`text-sm ${muted} italic`}>Click Weather to add details</div>
+                    )}
                   </div>
                 )}
-              </div>
-
-              <div>
-                <h3 className={`text-lg font-medium mb-3 ${text}`}>Barometric Pressure</h3>
-                <p className={`text-sm ${muted} mb-2`}>Track via Weather trigger above</p>
-                <div className="flex gap-2 items-center">
-                  <input
-                    type="text"
-                    value={currentEntry.barometric?.pressure || ''}
-                    onChange={(e) => setCurrentEntry({ 
-                      ...currentEntry, 
-                      barometric: { ...currentEntry.barometric, pressure: e.target.value }
-                    })}
-                    placeholder="30.12"
-                    className={`w-24 p-3 border-2 ${border} ${card} ${text} rounded-lg`}
-                  />
-                  <button
-                    onClick={() => setCurrentEntry({ 
-                      ...currentEntry, 
-                      barometric: { 
-                        ...currentEntry.barometric, 
-                        trend: currentEntry.barometric?.trend === 'up' ? null : 'up' 
-                      }
-                    })}
-                    className={`p-3 rounded-lg border-2 ${
-                      currentEntry.barometric?.trend === 'up' 
-                        ? 'bg-blue-500 border-blue-600 text-white' 
-                        : `${card} ${border} ${text}`
-                    }`}
-                  >
-                    ↑
-                  </button>
-                  <button
-                    onClick={() => setCurrentEntry({ 
-                      ...currentEntry, 
-                      barometric: { 
-                        ...currentEntry.barometric, 
-                        trend: currentEntry.barometric?.trend === 'down' ? null : 'down' 
-                      }
-                    })}
-                    className={`p-3 rounded-lg border-2 ${
-                      currentEntry.barometric?.trend === 'down' 
-                        ? 'bg-red-500 border-red-600 text-white' 
-                        : `${card} ${border} ${text}`
-                    }`}
-                  >
-                    ↓
-                  </button>
-                </div>
               </div>
 
               <div>
@@ -663,6 +618,7 @@
               className={`flex-1 py-4 flex flex-col items-center gap-1 ${activeView === 'medHistory' ? 'text-blue-600' : muted}`}
             >
               <span className="text-2xl">🏥</span>
+              <span className="text
               <span className="text-xs">History</span>
             </button>
           </div>
