@@ -48,18 +48,19 @@
           const key = `${selectedDate.getFullYear()}-${selectedDate.getMonth()}-${selectedDate.getDate()}`;
           const existingEntry = entries[key];
           if (existingEntry) {
+            // Load existing entry
             setCurrentEntry({
               painLevels: existingEntry.painLevels || [],
               sleep: existingEntry.sleep || { quality: null, naps: [] },
               locations: existingEntry.locations || [],
               triggers: existingEntry.triggers || [],
               barometric: existingEntry.barometric || { pressure: '', trend: null },
-              weatherNotes: existingEntry.weatherNotes || '',
               notes: existingEntry.notes || '',
               medications: existingEntry.medications || '',
               appointments: existingEntry.appointments || ''
             });
           } else {
+            // New entry
             setCurrentEntry({ 
               painLevels: [], 
               sleep: { quality: null, naps: [] }, 
@@ -89,6 +90,7 @@
         
         const oldEntry = entries[key];
         
+        // Track medication changes
         if (currentEntry.medications && currentEntry.medications !== oldEntry?.medications) {
           const newHistory = [...medHistory, {
             date: selectedDate.toLocaleDateString(),
@@ -100,6 +102,7 @@
           setMedHistory(newHistory);
         }
         
+        // Track appointment changes
         if (currentEntry.appointments && currentEntry.appointments !== oldEntry?.appointments) {
           const newApptHistory = [...apptHistory, {
             date: selectedDate.toLocaleDateString(),
@@ -125,6 +128,80 @@
         return (painLevels.find(p => p.level === max)?.color || 'bg-green-100') + ' text-white';
       };
 
+      const exportJSON = () => {
+        const blob = new Blob([JSON.stringify(entries, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `pain-tracker-${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+
+      const exportCSV = () => {
+        let csv = 'Date,Pain Levels,Sleep Quality,Naps,Locations,Triggers,Barometric Pressure,Weather Notes,Notes,Medications,Appointments\n';
+        
+        Object.keys(entries).sort().forEach(key => {
+          const entry = entries[key];
+          const [year, month, day] = key.split('-').map(Number);
+          const date = new Date(year, month, day).toLocaleDateString();
+          
+          csv += `"${date}",`;
+          csv += `"${entry.painLevels?.join(', ') || ''}",`;
+          csv += `"${entry.sleep?.quality || ''}",`;
+          csv += `"${entry.sleep?.naps?.join(', ') || ''}",`;
+          csv += `"${entry.locations?.join(', ') || ''}",`;
+          csv += `"${entry.triggers?.join(', ') || ''}",`;
+          csv += `"${entry.barometric?.pressure || ''} ${entry.barometric?.trend === 'up' ? '↑' : entry.barometric?.trend === 'down' ? '↓' : ''}",`;
+          csv += `"${entry.weatherNotes?.replace(/"/g, '""') || ''}",`;
+          csv += `"${entry.notes?.replace(/"/g, '""') || ''}",`;
+          csv += `"${entry.medications?.replace(/"/g, '""') || ''}",`;
+          csv += `"${entry.appointments?.replace(/"/g, '""') || ''}"\n`;
+        });
+        
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `pain-tracker-${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+
+      const exportExcel = () => {
+        let html = '<table border="1"><tr><th>Date</th><th>Pain Levels</th><th>Sleep Quality</th><th>Naps</th><th>Locations</th><th>Triggers</th><th>Barometric Pressure</th><th>Weather Notes</th><th>Notes</th><th>Medications</th><th>Appointments</th></tr>';
+        
+        Object.keys(entries).sort().forEach(key => {
+          const entry = entries[key];
+          const [year, month, day] = key.split('-').map(Number);
+          const date = new Date(year, month, day).toLocaleDateString();
+          
+          html += `<tr>
+            <td>${date}</td>
+            <td>${entry.painLevels?.join(', ') || ''}</td>
+            <td>${entry.sleep?.quality || ''}</td>
+            <td>${entry.sleep?.naps?.join(', ') || ''}</td>
+            <td>${entry.locations?.join(', ') || ''}</td>
+            <td>${entry.triggers?.join(', ') || ''}</td>
+            <td>${entry.barometric?.pressure || ''} ${entry.barometric?.trend === 'up' ? '↑' : entry.barometric?.trend === 'down' ? '↓' : ''}</td>
+            <td>${entry.weatherNotes || ''}</td>
+            <td>${entry.notes || ''}</td>
+            <td>${entry.medications || ''}</td>
+            <td>${entry.appointments || ''}</td>
+          </tr>`;
+        });
+        
+        html += '</table>';
+        
+        const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `pain-tracker-${new Date().toISOString().split('T')[0]}.xls`;
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+
       const bg = darkMode ? 'bg-gray-900' : 'bg-gray-50';
       const card = darkMode ? 'bg-gray-800' : 'bg-white';
       const text = darkMode ? 'text-white' : 'text-gray-800';
@@ -132,6 +209,7 @@
       const border = darkMode ? 'border-gray-700' : 'border-gray-200';
 
       if (selectedDate && currentEntry) {
+        // Weather detail view
         if (showWeatherDetail) {
           return (
             <div className={`max-w-2xl mx-auto ${bg} min-h-screen`}>
@@ -211,6 +289,7 @@
           );
         }
 
+        // Main entry view
         return (
           <div className={`max-w-2xl mx-auto ${bg} min-h-screen`}>
             <div className={`${card} p-4 flex justify-between items-center`}>
@@ -312,15 +391,17 @@
               <div>
                 <h3 className={`text-lg font-medium mb-3 ${text}`}>Triggers</h3>
                 <div className="flex gap-2 flex-wrap">
-                  {['Activity', 'Stress', 'Exercise', 'Sleep', 'Weather', 'Public Speaking'].map(t => (
+                  {['Activity', 'Stress', 'Exercise', 'Weather', 'Public Speaking'].map(t => (
                     <button 
                       key={t} 
                       onClick={() => {
                         if (t === 'Weather') {
+                          // Toggle weather trigger
                           const newTriggers = currentEntry.triggers.includes(t) 
                             ? currentEntry.triggers.filter(x => x !== t) 
                             : [...currentEntry.triggers, t];
                           setCurrentEntry({ ...currentEntry, triggers: newTriggers });
+                          // Open weather detail view
                           setShowWeatherDetail(true);
                         } else {
                           setCurrentEntry({ 
@@ -531,14 +612,7 @@
                       );
                     })}
                     <button 
-                      onClick={() => {
-                        const blob = new Blob([JSON.stringify(entries, null, 2)], { type: 'application/json' });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `pain-tracker-${new Date().toISOString().split('T')[0]}.json`;
-                        a.click();
-                      }} 
+                      onClick={exportJSON}
                       className={`w-full ${darkMode ? 'bg-gray-700' : 'bg-gray-800'} text-white py-4 rounded-lg mt-6`}
                     >
                       ⬇️ Export Data
@@ -614,7 +688,7 @@
               <span className="text-xs">Calendar</span>
             </button>
             <button 
-              onClick={() => setActiveView('stats')}
+              onClick={() => setActiveView('stats')} 
               className={`flex-1 py-4 flex flex-col items-center gap-1 ${activeView === 'stats' ? 'text-blue-600' : muted}`}
             >
               <span className="text-2xl">📊</span>
