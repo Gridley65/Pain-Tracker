@@ -88,10 +88,15 @@
         const key = `${selectedDate.getFullYear()}-${selectedDate.getMonth()}-${selectedDate.getDate()}`;
         
         const oldEntry = entries[key];
+        const dateStr = selectedDate.toLocaleDateString();
         
+        // Handle medication changes
         if (currentEntry.medications && currentEntry.medications !== oldEntry?.medications) {
-          const newHistory = [...medHistory, {
-            date: selectedDate.toLocaleDateString(),
+          // Remove any existing entry for this date
+          const filteredMedHistory = medHistory.filter(record => record.date !== dateStr);
+          // Add the new/updated entry
+          const newHistory = [...filteredMedHistory, {
+            date: dateStr,
             medications: currentEntry.medications,
             painLevels: currentEntry.painLevels,
             timestamp: Date.now()
@@ -100,9 +105,13 @@
           setMedHistory(newHistory);
         }
         
+        // Handle appointment changes
         if (currentEntry.appointments && currentEntry.appointments !== oldEntry?.appointments) {
-          const newApptHistory = [...apptHistory, {
-            date: selectedDate.toLocaleDateString(),
+          // Remove any existing entry for this date
+          const filteredApptHistory = apptHistory.filter(record => record.date !== dateStr);
+          // Add the new/updated entry
+          const newApptHistory = [...filteredApptHistory, {
+            date: dateStr,
             appointments: currentEntry.appointments,
             painLevels: currentEntry.painLevels,
             timestamp: Date.now()
@@ -597,123 +606,4 @@
                               <span>{title}</span>
                               <span className={muted}>{c} days</span>
                             </div>
-                            <div className={`h-2 ${darkMode ? 'bg-gray-700' : 'bg-gray-200'} rounded-full`}>
-                              <div className={color} style={{ width: `${p}%`, height: '100%' }} />
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    <div className="space-y-2 mt-6">
-                      <button 
-                        onClick={exportJSON}
-                        className={`w-full ${darkMode ? 'bg-gray-700' : 'bg-gray-800'} text-white py-3 rounded-lg font-medium`}
-                      >
-                        📋 Export as JSON
-                      </button>
-                      <button 
-                        onClick={exportCSV}
-                        className={`w-full ${darkMode ? 'bg-gray-700' : 'bg-gray-800'} text-white py-3 rounded-lg font-medium`}
-                      >
-                        📊 Export as CSV
-                      </button>
-                      <button 
-                        onClick={exportExcel}
-                        className={`w-full ${darkMode ? 'bg-gray-700' : 'bg-gray-800'} text-white py-3 rounded-lg font-medium`}
-                      >
-                        📈 Export as Excel
-                      </button>
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-          )}
-
-          {activeView === 'medHistory' && (
-            <div className={`${card} p-4 pb-24 overflow-y-auto`}>
-              <h2 className={`text-2xl font-medium mb-6 ${text}`}>Medical History</h2>
-              
-              {medHistory.length > 0 && (
-                <div className="mb-8">
-                  <h3 className={`text-lg font-medium mb-3 ${text}`}>Medications</h3>
-                  <div className="space-y-4">
-                    {medHistory.slice().sort((a, b) => {
-                      const dateA = new Date(a.date.split('/').reverse().join('-'));
-                      const dateB = new Date(b.date.split('/').reverse().join('-'));
-                      return dateB - dateA;
-                    }).map((record, idx) => (
-                      <div key={idx} className={`${darkMode ? 'bg-gray-700' : 'bg-gray-50'} rounded-lg p-4 border ${border}`}>
-                        <div className="flex justify-between items-start mb-2">
-                          <span className={`font-medium ${text}`}>{record.date}</span>
-                          {record.painLevels?.length > 0 && (
-                            <span className={`text-sm ${muted}`}>Pain: {record.painLevels.join(', ')}</span>
-                          )}
-                        </div>
-                        <p className={`${text} text-sm`}>{record.medications}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {apptHistory.length > 0 && (
-                <div>
-                  <h3 className={`text-lg font-medium mb-3 ${text}`}>Appointments</h3>
-                  <div className="space-y-4">
-                    {apptHistory.slice().sort((a, b) => {
-                      const dateA = new Date(a.date.split('/').reverse().join('-'));
-                      const dateB = new Date(b.date.split('/').reverse().join('-'));
-                      return dateB - dateA;
-                    }).map((record, idx) => (
-                      <div key={idx} className={`${darkMode ? 'bg-gray-700' : 'bg-gray-50'} rounded-lg p-4 border ${border}`}>
-                        <div className="flex justify-between items-start mb-2">
-                          <span className={`font-medium ${text}`}>{record.date}</span>
-                          {record.painLevels?.length > 0 && (
-                            <span className={`text-sm ${muted}`}>Pain: {record.painLevels.join(', ')}</span>
-                          )}
-                        </div>
-                        <p className={`${text} text-sm`}>{record.appointments}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {medHistory.length === 0 && apptHistory.length === 0 && (
-                <p className={`${muted} text-center py-12`}>No medical history recorded yet</p>
-              )}
-            </div>
-          )}
-
-          <div className={`fixed bottom-0 left-0 right-0 max-w-2xl mx-auto ${card} border-t ${border} flex`}>
-            <button 
-              onClick={() => setActiveView('calendar')} 
-              className={`flex-1 py-4 flex flex-col items-center gap-1 ${activeView === 'calendar' ? 'text-blue-600' : muted}`}
-            >
-              <span className="text-2xl">📅</span>
-              <span className="text-xs">Calendar</span>
-            </button>
-            <button 
-              onClick={() => setActiveView('stats')} 
-              className={`flex-1 py-4 flex flex-col items-center gap-1 ${activeView === 'stats' ? 'text-blue-600' : muted}`}
-            >
-              <span className="text-2xl">📊</span>
-              <span className="text-xs">Stats</span>
-            </button>
-            <button 
-              onClick={() => setActiveView('medHistory')} 
-              className={`flex-1 py-4 flex flex-col items-center gap-1 ${activeView === 'medHistory' ? 'text-blue-600' : muted}`}
-            >
-              <span className="text-2xl">🏥</span>
-              <span className="text-xs">History</span>
-            </button>
-          </div>
-        </div>
-      );
-    };
-
-    ReactDOM.render(<PainTrackerApp />, document.getElementById('root'));
-  </script>
-</body>
-</html>
+                            <div className={`h-2 ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}
