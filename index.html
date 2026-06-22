@@ -20,6 +20,19 @@
   <script type="text/babel">
     const { useState, useEffect } = React;
 
+    // Handles both old locale date strings (e.g. "6/21/2026") and new YYYY-MM-DD format
+    const formatDisplayDate = (dateStr) => {
+      if (!dateStr) return 'Unknown date';
+      // New format: YYYY-MM-DD
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+      }
+      // Old format: locale string like "6/21/2026" or "21/06/2026"
+      const d = new Date(dateStr);
+      if (!isNaN(d)) return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+      return dateStr; // fallback: show raw string rather than "Invalid Date"
+    };
+
     // FIX 2: Safe localStorage wrapper to handle blocked/unavailable storage
     const storage = {
       get(key) {
@@ -435,7 +448,7 @@
                     {medHistory.slice().sort((a, b) => b.date.localeCompare(a.date)).map((record, idx) => (
                       <div key={idx} className={`${darkMode ? 'bg-gray-700' : 'bg-gray-50'} rounded-lg p-4 border ${border}`}>
                         <div className="flex justify-between items-start mb-2">
-                          <span className={`font-medium ${text}`}>{new Date(record.date + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+                          <span className={`font-medium ${text}`}>{formatDisplayDate(record.date)}</span>
                           {record.painLevels?.length > 0 && <span className={`text-sm ${muted}`}>Pain: {record.painLevels.join(', ')}</span>}
                         </div>
                         <p className={`${text} text-sm`}>{record.medications}</p>
@@ -452,7 +465,7 @@
                     {apptHistory.slice().sort((a, b) => b.date.localeCompare(a.date)).map((record, idx) => (
                       <div key={idx} className={`${darkMode ? 'bg-gray-700' : 'bg-gray-50'} rounded-lg p-4 border ${border}`}>
                         <div className="flex justify-between items-start mb-2">
-                          <span className={`font-medium ${text}`}>{new Date(record.date + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+                          <span className={`font-medium ${text}`}>{formatDisplayDate(record.date)}</span>
                           {record.painLevels?.length > 0 && <span className={`text-sm ${muted}`}>Pain: {record.painLevels.join(', ')}</span>}
                         </div>
                         <p className={`${text} text-sm`}>{record.appointments}</p>
