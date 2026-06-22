@@ -23,14 +23,20 @@
     // Handles both old locale date strings (e.g. "6/21/2026") and new YYYY-MM-DD format
     const formatDisplayDate = (dateStr) => {
       if (!dateStr) return 'Unknown date';
-      // New format: YYYY-MM-DD
       if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
         return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
       }
-      // Old format: locale string like "6/21/2026" or "21/06/2026"
       const d = new Date(dateStr);
       if (!isNaN(d)) return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-      return dateStr; // fallback: show raw string rather than "Invalid Date"
+      return dateStr;
+    };
+
+    // Converts any date string format to a timestamp for reliable sorting
+    const toTimestamp = (dateStr) => {
+      if (!dateStr) return 0;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return new Date(dateStr + 'T00:00:00').getTime();
+      const d = new Date(dateStr);
+      return isNaN(d) ? 0 : d.getTime();
     };
 
     // FIX 2: Safe localStorage wrapper to handle blocked/unavailable storage
@@ -445,7 +451,7 @@
                   <h3 className={`text-lg font-medium mb-3 ${text}`}>Medications</h3>
                   <div className="space-y-4">
                     {/* FIX 3: Sort by YYYY-MM-DD string (no parsing needed, sorts correctly) */}
-                    {medHistory.slice().sort((a, b) => b.date.localeCompare(a.date)).map((record, idx) => (
+                    {medHistory.slice().sort((a, b) => toTimestamp(b.date) - toTimestamp(a.date)).map((record, idx) => (
                       <div key={idx} className={`${darkMode ? 'bg-gray-700' : 'bg-gray-50'} rounded-lg p-4 border ${border}`}>
                         <div className="flex justify-between items-start mb-2">
                           <span className={`font-medium ${text}`}>{formatDisplayDate(record.date)}</span>
@@ -462,7 +468,7 @@
                 <div>
                   <h3 className={`text-lg font-medium mb-3 ${text}`}>Appointments</h3>
                   <div className="space-y-4">
-                    {apptHistory.slice().sort((a, b) => b.date.localeCompare(a.date)).map((record, idx) => (
+                    {apptHistory.slice().sort((a, b) => toTimestamp(b.date) - toTimestamp(a.date)).map((record, idx) => (
                       <div key={idx} className={`${darkMode ? 'bg-gray-700' : 'bg-gray-50'} rounded-lg p-4 border ${border}`}>
                         <div className="flex justify-between items-start mb-2">
                           <span className={`font-medium ${text}`}>{formatDisplayDate(record.date)}</span>
