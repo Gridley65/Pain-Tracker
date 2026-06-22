@@ -11,14 +11,27 @@
 </head>
 <body>
   <div id="root"></div>
-  
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  
+
+  <!-- FIX 1: Switched from unpkg.com to cdnjs.cloudflare.com for reliability -->
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+
   <script type="text/babel">
     const { useState, useEffect } = React;
-    
+
+    // FIX 2: Safe localStorage wrapper to handle blocked/unavailable storage
+    const storage = {
+      get(key) {
+        try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; }
+        catch { return null; }
+      },
+      set(key, value) {
+        try { localStorage.setItem(key, JSON.stringify(value)); return true; }
+        catch { return false; }
+      }
+    };
+
     const PainTrackerApp = () => {
       const [currentDate, setCurrentDate] = useState(new Date());
       const [selectedDate, setSelectedDate] = useState(null);
@@ -29,93 +42,80 @@
       const [medHistory, setMedHistory] = useState([]);
       const [apptHistory, setApptHistory] = useState([]);
       const [showWeatherDetail, setShowWeatherDetail] = useState(false);
+      const [storageWarning, setStorageWarning] = useState(false);
 
       useEffect(() => {
-        try {
-          const e = localStorage.getItem('entries');
-          if (e) setEntries(JSON.parse(e));
-          const d = localStorage.getItem('dark');
-          if (d) setDarkMode(JSON.parse(d));
-          const m = localStorage.getItem('medHistory');
-          if (m) setMedHistory(JSON.parse(m));
-          const a = localStorage.getItem('apptHistory');
-          if (a) setApptHistory(JSON.parse(a));
-        } catch (err) {}
+        const e = storage.get('entries');
+        if (e) setEntries(e);
+        const d = storage.get('dark');
+        if (d != null) setDarkMode(d);
+        const m = storage.get('medHistory');
+        if (m) setMedHistory(m);
+        const a = storage.get('apptHistory');
+        if (a) setApptHistory(a);
+        // Check if storage is available
+        const testSave = storage.set('_test', 1);
+        if (!testSave) setStorageWarning(true);
+        else { try { localStorage.removeItem('_test'); } catch {} }
       }, []);
 
       useEffect(() => {
         if (selectedDate) {
           const key = `${selectedDate.getFullYear()}-${selectedDate.getMonth()}-${selectedDate.getDate()}`;
-          const existingEntry = entries[key];
-          if (existingEntry) {
-            setCurrentEntry({
-              painLevels: existingEntry.painLevels || [],
-              sleep: existingEntry.sleep || { quality: null, naps: [] },
-              locations: existingEntry.locations || [],
-              triggers: existingEntry.triggers || [],
-              barometric: existingEntry.barometric || { pressure: '', trend: null },
-              weatherNotes: existingEntry.weatherNotes || '',
-              notes: existingEntry.notes || '',
-              medications: existingEntry.medications || '',
-              appointments: existingEntry.appointments || ''
-            });
-          } else {
-            setCurrentEntry({ 
-              painLevels: [], 
-              sleep: { quality: null, naps: [] }, 
-              locations: [], 
-              triggers: [], 
-              barometric: { pressure: '', trend: null },
-              weatherNotes: '',
-              notes: '', 
-              medications: '',
-              appointments: ''
-            });
-          }
+          const existing = entries[key];
+          setCurrentEntry(existing ? {
+            painLevels: existing.painLevels || [],
+            sleep: existing.sleep || { quality: null, naps: [] },
+            locations: existing.locations || [],
+            triggers: existing.triggers || [],
+            barometric: existing.barometric || { pressure: '', trend: null },
+            weatherNotes: existing.weatherNotes || '',
+            notes: existing.notes || '',
+            medications: existing.medications || '',
+            appointments: existing.appointments || ''
+          } : {
+            painLevels: [], sleep: { quality: null, naps: [] }, locations: [],
+            triggers: [], barometric: { pressure: '', trend: null },
+            weatherNotes: '', notes: '', medications: '', appointments: ''
+          });
         }
       }, [selectedDate]);
 
       const painLevels = [
         { level: 10, color: 'bg-purple-600', title: 'Excruciating', desc: 'Take me to the ER' },
-        { level: 9, color: 'bg-red-900', title: 'Severe', desc: "Can't think about anything else" },
-        { level: 8, color: 'bg-red-600', title: 'Intense', desc: 'Hard to think, talk, or listen' },
-        { level: 7, color: 'bg-orange-500', title: 'Barely Manageable', desc: 'Prevents activities' },
-        { level: 6, color: 'bg-yellow-400', title: 'Distressing', desc: 'Think about it continually' }
+        { level: 9,  color: 'bg-red-900',    title: 'Severe',        desc: "Can't think about anything else" },
+        { level: 8,  color: 'bg-red-600',    title: 'Intense',       desc: 'Hard to think, talk, or listen' },
+        { level: 7,  color: 'bg-orange-500', title: 'Barely Manageable', desc: 'Prevents activities' },
+        { level: 6,  color: 'bg-yellow-400', title: 'Distressing',   desc: 'Think about it continually' }
       ];
 
       const save = () => {
         if (!selectedDate || !currentEntry) return;
         const key = `${selectedDate.getFullYear()}-${selectedDate.getMonth()}-${selectedDate.getDate()}`;
-        
+        // FIX 3: Use consistent date format for sorting (YYYY-MM-DD)
+        const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth()+1).padStart(2,'0')}-${String(selectedDate.getDate()).padStart(2,'0')}`;
         const oldEntry = entries[key];
-        const dateStr = selectedDate.toLocaleDateString();
-        
+
         if (currentEntry.medications && currentEntry.medications !== oldEntry?.medications) {
-          const filteredMedHistory = medHistory.filter(record => record.date !== dateStr);
-          const newHistory = [...filteredMedHistory, {
-            date: dateStr,
-            medications: currentEntry.medications,
-            painLevels: currentEntry.painLevels,
-            timestamp: Date.now()
+          const newMedHistory = [...medHistory.filter(r => r.date !== dateStr), {
+            date: dateStr, medications: currentEntry.medications,
+            painLevels: currentEntry.painLevels, timestamp: Date.now()
           }];
-          localStorage.setItem('medHistory', JSON.stringify(newHistory));
-          setMedHistory(newHistory);
+          storage.set('medHistory', newMedHistory);
+          setMedHistory(newMedHistory);
         }
-        
+
         if (currentEntry.appointments && currentEntry.appointments !== oldEntry?.appointments) {
-          const filteredApptHistory = apptHistory.filter(record => record.date !== dateStr);
-          const newApptHistory = [...filteredApptHistory, {
-            date: dateStr,
-            appointments: currentEntry.appointments,
-            painLevels: currentEntry.painLevels,
-            timestamp: Date.now()
+          const newApptHistory = [...apptHistory.filter(r => r.date !== dateStr), {
+            date: dateStr, appointments: currentEntry.appointments,
+            painLevels: currentEntry.painLevels, timestamp: Date.now()
           }];
-          localStorage.setItem('apptHistory', JSON.stringify(newApptHistory));
+          storage.set('apptHistory', newApptHistory);
           setApptHistory(newApptHistory);
         }
-        
+
         const newEntries = { ...entries, [key]: currentEntry };
-        localStorage.setItem('entries', JSON.stringify(newEntries));
+        storage.set('entries', newEntries);
         setEntries(newEntries);
         setSelectedDate(null);
       };
@@ -124,74 +124,39 @@
         const blob = new Blob([JSON.stringify(entries, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url;
-        a.download = `pain-tracker-${new Date().toISOString().split('T')[0]}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
+        a.href = url; a.download = `pain-tracker-${new Date().toISOString().split('T')[0]}.json`;
+        a.click(); URL.revokeObjectURL(url);
       };
 
       const exportCSV = () => {
         let csv = 'Date,Pain Levels,Sleep Quality,Naps,Locations,Triggers,Barometric Pressure,Weather Notes,Notes,Medications,Appointments\n';
-        
         Object.keys(entries).sort().forEach(key => {
           const entry = entries[key];
           const [year, month, day] = key.split('-').map(Number);
           const date = new Date(year, month, day).toLocaleDateString();
-          
-          csv += `"${date}",`;
-          csv += `"${entry.painLevels?.join(', ') || ''}",`;
-          csv += `"${entry.sleep?.quality || ''}",`;
-          csv += `"${entry.sleep?.naps?.join(', ') || ''}",`;
-          csv += `"${entry.locations?.join(', ') || ''}",`;
-          csv += `"${entry.triggers?.join(', ') || ''}",`;
-          csv += `"${entry.barometric?.pressure || ''} ${entry.barometric?.trend === 'up' ? '↑' : entry.barometric?.trend === 'down' ? '↓' : ''}",`;
-          csv += `"${entry.weatherNotes?.replace(/"/g, '""') || ''}",`;
-          csv += `"${entry.notes?.replace(/"/g, '""') || ''}",`;
-          csv += `"${entry.medications?.replace(/"/g, '""') || ''}",`;
-          csv += `"${entry.appointments?.replace(/"/g, '""') || ''}"\n`;
+          csv += `"${date}","${entry.painLevels?.join(', ') || ''}","${entry.sleep?.quality || ''}","${entry.sleep?.naps?.join(', ') || ''}","${entry.locations?.join(', ') || ''}","${entry.triggers?.join(', ') || ''}","${entry.barometric?.pressure || ''} ${entry.barometric?.trend === 'up' ? '↑' : entry.barometric?.trend === 'down' ? '↓' : ''}","${(entry.weatherNotes || '').replace(/"/g,'""')}","${(entry.notes || '').replace(/"/g,'""')}","${(entry.medications || '').replace(/"/g,'""')}","${(entry.appointments || '').replace(/"/g,'""')}"\n`;
         });
-        
         const blob = new Blob([csv], { type: 'text/csv' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url;
-        a.download = `pain-tracker-${new Date().toISOString().split('T')[0]}.csv`;
-        a.click();
-        URL.revokeObjectURL(url);
+        a.href = url; a.download = `pain-tracker-${new Date().toISOString().split('T')[0]}.csv`;
+        a.click(); URL.revokeObjectURL(url);
       };
 
       const exportExcel = () => {
         let html = '<table border="1"><tr><th>Date</th><th>Pain Levels</th><th>Sleep Quality</th><th>Naps</th><th>Locations</th><th>Triggers</th><th>Barometric Pressure</th><th>Weather Notes</th><th>Notes</th><th>Medications</th><th>Appointments</th></tr>';
-        
         Object.keys(entries).sort().forEach(key => {
           const entry = entries[key];
           const [year, month, day] = key.split('-').map(Number);
           const date = new Date(year, month, day).toLocaleDateString();
-          
-          html += `<tr>
-            <td>${date}</td>
-            <td>${entry.painLevels?.join(', ') || ''}</td>
-            <td>${entry.sleep?.quality || ''}</td>
-            <td>${entry.sleep?.naps?.join(', ') || ''}</td>
-            <td>${entry.locations?.join(', ') || ''}</td>
-            <td>${entry.triggers?.join(', ') || ''}</td>
-            <td>${entry.barometric?.pressure || ''} ${entry.barometric?.trend === 'up' ? '↑' : entry.barometric?.trend === 'down' ? '↓' : ''}</td>
-            <td>${entry.weatherNotes || ''}</td>
-            <td>${entry.notes || ''}</td>
-            <td>${entry.medications || ''}</td>
-            <td>${entry.appointments || ''}</td>
-          </tr>`;
+          html += `<tr><td>${date}</td><td>${entry.painLevels?.join(', ') || ''}</td><td>${entry.sleep?.quality || ''}</td><td>${entry.sleep?.naps?.join(', ') || ''}</td><td>${entry.locations?.join(', ') || ''}</td><td>${entry.triggers?.join(', ') || ''}</td><td>${entry.barometric?.pressure || ''} ${entry.barometric?.trend === 'up' ? '↑' : entry.barometric?.trend === 'down' ? '↓' : ''}</td><td>${entry.weatherNotes || ''}</td><td>${entry.notes || ''}</td><td>${entry.medications || ''}</td><td>${entry.appointments || ''}</td></tr>`;
         });
-        
         html += '</table>';
-        
         const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url;
-        a.download = `pain-tracker-${new Date().toISOString().split('T')[0]}.xls`;
-        a.click();
-        URL.revokeObjectURL(url);
+        a.href = url; a.download = `pain-tracker-${new Date().toISOString().split('T')[0]}.xls`;
+        a.click(); URL.revokeObjectURL(url);
       };
 
       const getColor = (date) => {
@@ -223,71 +188,37 @@
                     <input
                       type="text"
                       value={currentEntry.barometric?.pressure || ''}
-                      onChange={(e) => setCurrentEntry({ 
-                        ...currentEntry, 
-                        barometric: { ...currentEntry.barometric, pressure: e.target.value }
-                      })}
+                      onChange={(e) => setCurrentEntry({ ...currentEntry, barometric: { ...currentEntry.barometric, pressure: e.target.value }})}
                       placeholder="30.12"
                       className={`w-24 p-3 border-2 ${border} ${card} ${text} rounded-lg`}
                     />
                     <button
-                      onClick={() => setCurrentEntry({ 
-                        ...currentEntry, 
-                        barometric: { 
-                          ...currentEntry.barometric, 
-                          trend: currentEntry.barometric?.trend === 'up' ? null : 'up' 
-                        }
-                      })}
-                      className={`p-3 rounded-lg border-2 ${
-                        currentEntry.barometric?.trend === 'up' 
-                          ? 'bg-blue-500 border-blue-600 text-white' 
-                          : `${card} ${border} ${text}`
-                      }`}
-                    >
-                      ↑
-                    </button>
+                      onClick={() => setCurrentEntry({ ...currentEntry, barometric: { ...currentEntry.barometric, trend: currentEntry.barometric?.trend === 'up' ? null : 'up' }})}
+                      className={`p-3 rounded-lg border-2 ${currentEntry.barometric?.trend === 'up' ? 'bg-blue-500 border-blue-600 text-white' : `${card} ${border} ${text}`}`}
+                    >↑</button>
                     <button
-                      onClick={() => setCurrentEntry({ 
-                        ...currentEntry, 
-                        barometric: { 
-                          ...currentEntry.barometric, 
-                          trend: currentEntry.barometric?.trend === 'down' ? null : 'down' 
-                        }
-                      })}
-                      className={`p-3 rounded-lg border-2 ${
-                        currentEntry.barometric?.trend === 'down' 
-                          ? 'bg-red-500 border-red-600 text-white' 
-                          : `${card} ${border} ${text}`
-                      }`}
-                    >
-                      ↓
-                    </button>
+                      onClick={() => setCurrentEntry({ ...currentEntry, barometric: { ...currentEntry.barometric, trend: currentEntry.barometric?.trend === 'down' ? null : 'down' }})}
+                      className={`p-3 rounded-lg border-2 ${currentEntry.barometric?.trend === 'down' ? 'bg-red-500 border-red-600 text-white' : `${card} ${border} ${text}`}`}
+                    >↓</button>
                   </div>
                 </div>
-
                 <div>
                   <h3 className={`text-lg font-medium mb-3 ${text}`}>Today's Weather</h3>
-                  <textarea 
-                    value={currentEntry.weatherNotes || ''} 
+                  <textarea
+                    value={currentEntry.weatherNotes || ''}
                     onChange={(e) => e.target.value.length <= 220 && setCurrentEntry({ ...currentEntry, weatherNotes: e.target.value })}
-                    className={`w-full p-3 border-2 ${border} ${card} ${text} rounded-lg`} 
-                    rows="4" 
-                    placeholder="Describe today's weather changes..." 
+                    className={`w-full p-3 border-2 ${border} ${card} ${text} rounded-lg`}
+                    rows="4" placeholder="Describe today's weather changes..."
                   />
                   <div className={`text-sm ${muted} text-right`}>{(currentEntry.weatherNotes || '').length}/220</div>
                 </div>
-
-                <button 
-                  onClick={() => setShowWeatherDetail(false)} 
-                  className="w-full bg-blue-600 text-white py-4 rounded-lg font-medium"
-                >
-                  Done
-                </button>
+                <button onClick={() => setShowWeatherDetail(false)} className="w-full bg-blue-600 text-white py-4 rounded-lg font-medium">Done</button>
               </div>
             </div>
           );
         }
-       return (
+
+        return (
           <div className={`max-w-2xl mx-auto ${bg} min-h-screen`}>
             <div className={`${card} p-4 flex justify-between items-center`}>
               <h2 className={`text-xl font-medium ${text}`}>
@@ -299,24 +230,14 @@
               <div>
                 <h3 className={`text-lg font-medium mb-3 ${text}`}>Pain Level</h3>
                 {painLevels.map(({ level, color, title, desc }) => (
-                  <button 
-                    key={level} 
-                    onClick={() => setCurrentEntry({ 
-                      ...currentEntry, 
-                      painLevels: currentEntry.painLevels.includes(level) 
-                        ? currentEntry.painLevels.filter(l => l !== level) 
-                        : [...currentEntry.painLevels, level] 
-                    })}
-                    className={`w-full text-left p-4 rounded-lg border-2 mb-2 ${
-                      currentEntry.painLevels.includes(level) ? `${color} text-white` : `${card} ${border}`
-                    }`}
+                  <button
+                    key={level}
+                    onClick={() => setCurrentEntry({ ...currentEntry, painLevels: currentEntry.painLevels.includes(level) ? currentEntry.painLevels.filter(l => l !== level) : [...currentEntry.painLevels, level] })}
+                    className={`w-full text-left p-4 rounded-lg border-2 mb-2 ${currentEntry.painLevels.includes(level) ? `${color} text-white` : `${card} ${border}`}`}
                   >
                     <div className="flex gap-3">
                       <span className="text-3xl font-bold">{level}</span>
-                      <div>
-                        <div className="font-medium">{title}</div>
-                        <div className="text-sm opacity-90">{desc}</div>
-                      </div>
+                      <div><div className="font-medium">{title}</div><div className="text-sm opacity-90">{desc}</div></div>
                     </div>
                   </button>
                 ))}
@@ -326,39 +247,21 @@
                 <h3 className={`text-lg font-medium mb-3 ${text}`}>Sleep</h3>
                 <div className="flex gap-2 mb-3">
                   {['Amazing', 'Good', 'Okay', 'Poor'].map(q => (
-                    <button 
-                      key={q} 
+                    <button
+                      key={q}
                       onClick={() => setCurrentEntry({ ...currentEntry, sleep: { ...currentEntry.sleep, quality: q }})}
-                      className={`px-4 py-2 rounded-full font-medium ${
-                        currentEntry.sleep.quality === q 
-                          ? (q === 'Amazing' ? 'bg-green-500' : q === 'Good' ? 'bg-green-400' : q === 'Okay' ? 'bg-yellow-400' : 'bg-red-500') + ' text-white' 
-                          : darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
-                      }`}
-                    >
-                      {q}
-                    </button>
+                      className={`px-4 py-2 rounded-full font-medium ${currentEntry.sleep.quality === q ? (q === 'Amazing' ? 'bg-green-500' : q === 'Good' ? 'bg-green-400' : q === 'Okay' ? 'bg-yellow-400' : 'bg-red-500') + ' text-white' : darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'}`}
+                    >{q}</button>
                   ))}
                 </div>
                 <p className={`text-sm font-medium ${text} mb-2`}>Naps</p>
                 <div className="flex gap-2">
                   {['Morning', 'Afternoon', 'Evening'].map(t => (
-                    <button 
-                      key={t} 
-                      onClick={() => setCurrentEntry({ 
-                        ...currentEntry, 
-                        sleep: { 
-                          ...currentEntry.sleep, 
-                          naps: currentEntry.sleep.naps.includes(t) 
-                            ? currentEntry.sleep.naps.filter(n => n !== t) 
-                            : [...currentEntry.sleep.naps, t] 
-                        }
-                      })}
-                      className={`px-4 py-2 rounded-lg border-2 ${
-                        currentEntry.sleep.naps.includes(t) ? 'bg-blue-500 text-white' : `${card} ${border} ${text}`
-                      }`}
-                    >
-                      {t}
-                    </button>
+                    <button
+                      key={t}
+                      onClick={() => setCurrentEntry({ ...currentEntry, sleep: { ...currentEntry.sleep, naps: currentEntry.sleep.naps.includes(t) ? currentEntry.sleep.naps.filter(n => n !== t) : [...currentEntry.sleep.naps, t] }})}
+                      className={`px-4 py-2 rounded-lg border-2 ${currentEntry.sleep.naps.includes(t) ? 'bg-blue-500 text-white' : `${card} ${border} ${text}`}`}
+                    >{t}</button>
                   ))}
                 </div>
               </div>
@@ -367,20 +270,11 @@
                 <h3 className={`text-lg font-medium mb-3 ${text}`}>Location</h3>
                 <div className="flex gap-2 flex-wrap">
                   {['Forehead', 'Left Temple', 'Right Temple', 'Back of Head', 'Top of Head'].map(l => (
-                    <button 
-                      key={l} 
-                      onClick={() => setCurrentEntry({ 
-                        ...currentEntry, 
-                        locations: currentEntry.locations.includes(l) 
-                          ? currentEntry.locations.filter(x => x !== l) 
-                          : [...currentEntry.locations, l] 
-                      })}
-                      className={`px-4 py-2 rounded-lg border-2 ${
-                        currentEntry.locations.includes(l) ? 'bg-blue-500 text-white' : `${card} ${border} ${text}`
-                      }`}
-                    >
-                      {l}
-                    </button>
+                    <button
+                      key={l}
+                      onClick={() => setCurrentEntry({ ...currentEntry, locations: currentEntry.locations.includes(l) ? currentEntry.locations.filter(x => x !== l) : [...currentEntry.locations, l] })}
+                      className={`px-4 py-2 rounded-lg border-2 ${currentEntry.locations.includes(l) ? 'bg-blue-500 text-white' : `${card} ${border} ${text}`}`}
+                    >{l}</button>
                   ))}
                 </div>
               </div>
@@ -389,87 +283,46 @@
                 <h3 className={`text-lg font-medium mb-3 ${text}`}>Triggers</h3>
                 <div className="flex gap-2 flex-wrap">
                   {['Activity', 'Stress', 'Exercise', 'Sleep', 'Weather', 'Public Speaking'].map(t => (
-                    <button 
-                      key={t} 
+                    <button
+                      key={t}
                       onClick={() => {
-                        if (t === 'Weather') {
-                          const newTriggers = currentEntry.triggers.includes(t) 
-                            ? currentEntry.triggers.filter(x => x !== t) 
-                            : [...currentEntry.triggers, t];
-                          setCurrentEntry({ ...currentEntry, triggers: newTriggers });
-                          setShowWeatherDetail(true);
-                        } else {
-                          setCurrentEntry({ 
-                            ...currentEntry, 
-                            triggers: currentEntry.triggers.includes(t) 
-                              ? currentEntry.triggers.filter(x => x !== t) 
-                              : [...currentEntry.triggers, t] 
-                          });
-                        }
+                        const newTriggers = currentEntry.triggers.includes(t) ? currentEntry.triggers.filter(x => x !== t) : [...currentEntry.triggers, t];
+                        setCurrentEntry({ ...currentEntry, triggers: newTriggers });
+                        if (t === 'Weather' && !currentEntry.triggers.includes(t)) setShowWeatherDetail(true);
                       }}
-                      className={`px-3 py-2 text-sm rounded-lg border-2 ${
-                        currentEntry.triggers.includes(t) ? 'bg-orange-500 text-white' : `${card} ${border} ${text}`
-                      }`}
-                    >
-                      {t}
-                    </button>
+                      className={`px-3 py-2 text-sm rounded-lg border-2 ${currentEntry.triggers.includes(t) ? 'bg-orange-500 text-white' : `${card} ${border} ${text}`}`}
+                    >{t}</button>
                   ))}
                 </div>
                 {currentEntry.triggers.includes('Weather') && (
                   <div className={`mt-4 p-3 ${darkMode ? 'bg-gray-700' : 'bg-gray-50'} rounded-lg border ${border}`}>
                     <div className={`text-sm font-medium ${text} mb-1`}>Weather Details:</div>
-                    {currentEntry.barometric?.pressure && (
-                      <div className={`text-sm ${text}`}>Pressure: {currentEntry.barometric.pressure} {currentEntry.barometric?.trend === 'up' ? '↑' : currentEntry.barometric?.trend === 'down' ? '↓' : ''}</div>
-                    )}
-                    {currentEntry.weatherNotes && (
-                      <div className={`text-sm ${text}`}>{currentEntry.weatherNotes}</div>
-                    )}
-                    {!currentEntry.barometric?.pressure && !currentEntry.weatherNotes && (
-                      <div className={`text-sm ${muted} italic`}>Click Weather to add details</div>
-                    )}
+                    {currentEntry.barometric?.pressure && <div className={`text-sm ${text}`}>Pressure: {currentEntry.barometric.pressure} {currentEntry.barometric?.trend === 'up' ? '↑' : currentEntry.barometric?.trend === 'down' ? '↓' : ''}</div>}
+                    {currentEntry.weatherNotes && <div className={`text-sm ${text}`}>{currentEntry.weatherNotes}</div>}
+                    {!currentEntry.barometric?.pressure && !currentEntry.weatherNotes && <div className={`text-sm ${muted} italic`}>Click Weather to add details</div>}
                   </div>
                 )}
               </div>
 
               <div>
                 <h3 className={`text-lg font-medium mb-3 ${text}`}>Notes</h3>
-                <textarea 
-                  value={currentEntry.notes} 
-                  onChange={(e) => e.target.value.length <= 440 && setCurrentEntry({ ...currentEntry, notes: e.target.value })}
-                  className={`w-full p-3 border-2 ${border} ${card} ${text} rounded-lg`} 
-                  rows="4" 
-                  placeholder="Notes..." 
-                />
+                <textarea value={currentEntry.notes} onChange={(e) => e.target.value.length <= 440 && setCurrentEntry({ ...currentEntry, notes: e.target.value })} className={`w-full p-3 border-2 ${border} ${card} ${text} rounded-lg`} rows="4" placeholder="Notes..." />
                 <div className={`text-sm ${muted} text-right`}>{currentEntry.notes.length}/440</div>
               </div>
 
               <div>
                 <h3 className={`text-lg font-medium mb-3 ${text}`}>Medications</h3>
-                <textarea 
-                  value={currentEntry.medications} 
-                  onChange={(e) => e.target.value.length <= 240 && setCurrentEntry({ ...currentEntry, medications: e.target.value })}
-                  className={`w-full p-3 border-2 ${border} ${card} ${text} rounded-lg`} 
-                  rows="3" 
-                  placeholder="Medications..." 
-                />
+                <textarea value={currentEntry.medications} onChange={(e) => e.target.value.length <= 240 && setCurrentEntry({ ...currentEntry, medications: e.target.value })} className={`w-full p-3 border-2 ${border} ${card} ${text} rounded-lg`} rows="3" placeholder="Medications..." />
                 <div className={`text-sm ${muted} text-right`}>{currentEntry.medications.length}/240</div>
               </div>
 
               <div>
                 <h3 className={`text-lg font-medium mb-3 ${text}`}>Medical Appointments</h3>
-                <textarea 
-                  value={currentEntry.appointments} 
-                  onChange={(e) => e.target.value.length <= 440 && setCurrentEntry({ ...currentEntry, appointments: e.target.value })}
-                  className={`w-full p-3 border-2 ${border} ${card} ${text} rounded-lg`} 
-                  rows="4" 
-                  placeholder="Appointments, procedures, tests..." 
-                />
+                <textarea value={currentEntry.appointments} onChange={(e) => e.target.value.length <= 440 && setCurrentEntry({ ...currentEntry, appointments: e.target.value })} className={`w-full p-3 border-2 ${border} ${card} ${text} rounded-lg`} rows="4" placeholder="Appointments, procedures, tests..." />
                 <div className={`text-sm ${muted} text-right`}>{currentEntry.appointments.length}/440</div>
               </div>
 
-              <button onClick={save} className="w-full bg-blue-600 text-white py-4 rounded-lg font-medium">
-                Save Entry
-              </button>
+              <button onClick={save} className="w-full bg-blue-600 text-white py-4 rounded-lg font-medium">Save Entry</button>
             </div>
           </div>
         );
@@ -477,46 +330,31 @@
 
       const { daysInMonth, startingDayOfWeek } = (() => {
         const y = currentDate.getFullYear(), m = currentDate.getMonth();
-        return { 
-          daysInMonth: new Date(y, m + 1, 0).getDate(), 
-          startingDayOfWeek: new Date(y, m, 1).getDay() 
-        };
+        return { daysInMonth: new Date(y, m + 1, 0).getDate(), startingDayOfWeek: new Date(y, m, 1).getDay() };
       })();
 
       return (
         <div className={`max-w-2xl mx-auto ${bg} min-h-screen`}>
           <div className={`${card} p-4 flex justify-between items-center`}>
             <h1 className={`text-2xl font-medium ${text}`}>Pain Tracker</h1>
-            <button 
-              onClick={() => {
-                const n = !darkMode;
-                setDarkMode(n);
-                localStorage.setItem('dark', JSON.stringify(n));
-              }}
-              className="text-2xl"
-            >
+            <button onClick={() => { const n = !darkMode; setDarkMode(n); storage.set('dark', n); }} className="text-2xl">
               {darkMode ? '☀️' : '🌙'}
             </button>
           </div>
-          
+
+          {/* FIX 2: Storage warning banner */}
+          {storageWarning && (
+            <div className="bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-2 text-sm text-center">
+              ⚠️ Storage unavailable — data will not be saved between sessions. Try a different browser or disable private/incognito mode.
+            </div>
+          )}
+
           {activeView === 'calendar' && (
             <div className={`${card} p-4`}>
               <div className="flex justify-between items-center mb-6">
-                <button 
-                  onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1))} 
-                  className="p-2 text-2xl"
-                >
-                  ←
-                </button>
-                <h2 className={`text-2xl font-medium ${text}`}>
-                  {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                </h2>
-                <button 
-                  onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1))} 
-                  className="p-2 text-2xl"
-                >
-                  →
-                </button>
+                <button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1))} className="p-2 text-2xl">←</button>
+                <h2 className={`text-2xl font-medium ${text}`}>{currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</h2>
+                <button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1))} className="p-2 text-2xl">→</button>
               </div>
               <div className="grid grid-cols-7 gap-2 mb-2">
                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
@@ -528,24 +366,16 @@
                 {Array(daysInMonth).fill(0).map((_, i) => {
                   const d = new Date(currentDate.getFullYear(), currentDate.getMonth(), i + 1);
                   return (
-                    <button 
-                      key={i} 
-                      onClick={() => setSelectedDate(d)} 
-                      className={`aspect-square rounded-lg font-medium text-lg ${getColor(d)}`}
-                    >
+                    <button key={i} onClick={() => setSelectedDate(d)} className={`aspect-square rounded-lg font-medium text-lg ${getColor(d)}`}>
                       {i + 1}
                     </button>
                   );
                 })}
               </div>
-              <button 
-                onClick={() => setSelectedDate(new Date())} 
-                className="fixed bottom-20 right-4 bg-blue-600 text-white p-4 rounded-full shadow-lg z-10 text-2xl"
-              >
-                +
-              </button>
+              <button onClick={() => setSelectedDate(new Date())} className="fixed bottom-20 right-4 bg-blue-600 text-white p-4 rounded-full shadow-lg z-10 text-2xl">+</button>
             </div>
           )}
+
           {activeView === 'stats' && (
             <div className={`${card} p-4 pb-24`}>
               <h2 className={`text-2xl font-medium mb-6 ${text}`}>Statistics</h2>
@@ -555,34 +385,16 @@
                 const counts = {};
                 let total = 0;
                 Object.values(entries).forEach(e => {
-                  if (e.painLevels?.length) {
-                    total++;
-                    e.painLevels.forEach(l => counts[l] = (counts[l] || 0) + 1);
-                  }
+                  if (e.painLevels?.length) { total++; e.painLevels.forEach(l => counts[l] = (counts[l] || 0) + 1); }
                 });
                 const avg = total ? Object.entries(counts).reduce((s, [l, c]) => s + l * c, 0) / Object.values(counts).reduce((s, c) => s + c, 0) : 0;
                 return (
                   <div>
                     <div className={`${darkMode ? 'bg-blue-900' : 'bg-blue-50'} rounded-lg p-4 mb-6`}>
                       <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <p className={`text-sm ${muted}`}>Entries</p>
-                          <p className={`text-2xl font-bold ${darkMode ? 'text-blue-100' : 'text-blue-600'}`}>
-                            {Object.keys(entries).length}
-                          </p>
-                        </div>
-                        <div>
-                          <p className={`text-sm ${muted}`}>Pain Days</p>
-                          <p className={`text-2xl font-bold ${darkMode ? 'text-blue-100' : 'text-blue-600'}`}>
-                            {total}
-                          </p>
-                        </div>
-                        <div className="col-span-2">
-                          <p className={`text-sm ${muted}`}>Avg Pain</p>
-                          <p className={`text-2xl font-bold ${darkMode ? 'text-blue-100' : 'text-blue-600'}`}>
-                            {avg.toFixed(1)}
-                          </p>
-                        </div>
+                        <div><p className={`text-sm ${muted}`}>Entries</p><p className={`text-2xl font-bold ${darkMode ? 'text-blue-100' : 'text-blue-600'}`}>{Object.keys(entries).length}</p></div>
+                        <div><p className={`text-sm ${muted}`}>Pain Days</p><p className={`text-2xl font-bold ${darkMode ? 'text-blue-100' : 'text-blue-600'}`}>{total}</p></div>
+                        <div className="col-span-2"><p className={`text-sm ${muted}`}>Avg Pain</p><p className={`text-2xl font-bold ${darkMode ? 'text-blue-100' : 'text-blue-600'}`}>{avg.toFixed(1)}</p></div>
                       </div>
                     </div>
                     {painLevels.map(({ level, color, title }) => {
@@ -590,14 +402,9 @@
                       const p = total ? (c / total) * 100 : 0;
                       return (
                         <div key={level} className="flex items-center gap-3 mb-2">
-                          <div className={`w-8 h-8 rounded ${color} flex items-center justify-center text-white font-bold text-sm`}>
-                            {level}
-                          </div>
+                          <div className={`w-8 h-8 rounded ${color} flex items-center justify-center text-white font-bold text-sm`}>{level}</div>
                           <div className="flex-1">
-                            <div className={`flex justify-between text-sm ${text}`}>
-                              <span>{title}</span>
-                              <span className={muted}>{c} days</span>
-                            </div>
+                            <div className={`flex justify-between text-sm ${text}`}><span>{title}</span><span className={muted}>{c} days</span></div>
                             <div className={`h-2 ${darkMode ? 'bg-gray-700' : 'bg-gray-200'} rounded-full`}>
                               <div className={color} style={{ width: `${p}%`, height: '100%' }} />
                             </div>
@@ -606,24 +413,9 @@
                       );
                     })}
                     <div className="space-y-2 mt-6">
-                      <button 
-                        onClick={exportJSON}
-                        className={`w-full ${darkMode ? 'bg-gray-700' : 'bg-gray-800'} text-white py-3 rounded-lg font-medium`}
-                      >
-                        📋 Export as JSON
-                      </button>
-                      <button 
-                        onClick={exportCSV}
-                        className={`w-full ${darkMode ? 'bg-gray-700' : 'bg-gray-800'} text-white py-3 rounded-lg font-medium`}
-                      >
-                        📊 Export as CSV
-                      </button>
-                      <button 
-                        onClick={exportExcel}
-                        className={`w-full ${darkMode ? 'bg-gray-700' : 'bg-gray-800'} text-white py-3 rounded-lg font-medium`}
-                      >
-                        📈 Export as Excel
-                      </button>
+                      <button onClick={exportJSON} className={`w-full ${darkMode ? 'bg-gray-700' : 'bg-gray-800'} text-white py-3 rounded-lg font-medium`}>📋 Export as JSON</button>
+                      <button onClick={exportCSV} className={`w-full ${darkMode ? 'bg-gray-700' : 'bg-gray-800'} text-white py-3 rounded-lg font-medium`}>📊 Export as CSV</button>
+                      <button onClick={exportExcel} className={`w-full ${darkMode ? 'bg-gray-700' : 'bg-gray-800'} text-white py-3 rounded-lg font-medium`}>📈 Export as Excel</button>
                     </div>
                   </div>
                 );
@@ -634,22 +426,17 @@
           {activeView === 'medHistory' && (
             <div className={`${card} p-4 pb-24 overflow-y-auto`}>
               <h2 className={`text-2xl font-medium mb-6 ${text}`}>Medical History</h2>
-              
+
               {medHistory.length > 0 && (
                 <div className="mb-8">
                   <h3 className={`text-lg font-medium mb-3 ${text}`}>Medications</h3>
                   <div className="space-y-4">
-                    {medHistory.slice().sort((a, b) => {
-                      const dateA = new Date(a.date.split('/').reverse().join('-'));
-                      const dateB = new Date(b.date.split('/').reverse().join('-'));
-                      return dateB - dateA;
-                    }).map((record, idx) => (
+                    {/* FIX 3: Sort by YYYY-MM-DD string (no parsing needed, sorts correctly) */}
+                    {medHistory.slice().sort((a, b) => b.date.localeCompare(a.date)).map((record, idx) => (
                       <div key={idx} className={`${darkMode ? 'bg-gray-700' : 'bg-gray-50'} rounded-lg p-4 border ${border}`}>
                         <div className="flex justify-between items-start mb-2">
-                          <span className={`font-medium ${text}`}>{record.date}</span>
-                          {record.painLevels?.length > 0 && (
-                            <span className={`text-sm ${muted}`}>Pain: {record.painLevels.join(', ')}</span>
-                          )}
+                          <span className={`font-medium ${text}`}>{new Date(record.date + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+                          {record.painLevels?.length > 0 && <span className={`text-sm ${muted}`}>Pain: {record.painLevels.join(', ')}</span>}
                         </div>
                         <p className={`${text} text-sm`}>{record.medications}</p>
                       </div>
@@ -662,17 +449,11 @@
                 <div>
                   <h3 className={`text-lg font-medium mb-3 ${text}`}>Appointments</h3>
                   <div className="space-y-4">
-                    {apptHistory.slice().sort((a, b) => {
-                      const dateA = new Date(a.date.split('/').reverse().join('-'));
-                      const dateB = new Date(b.date.split('/').reverse().join('-'));
-                      return dateB - dateA;
-                    }).map((record, idx) => (
+                    {apptHistory.slice().sort((a, b) => b.date.localeCompare(a.date)).map((record, idx) => (
                       <div key={idx} className={`${darkMode ? 'bg-gray-700' : 'bg-gray-50'} rounded-lg p-4 border ${border}`}>
                         <div className="flex justify-between items-start mb-2">
-                          <span className={`font-medium ${text}`}>{record.date}</span>
-                          {record.painLevels?.length > 0 && (
-                            <span className={`text-sm ${muted}`}>Pain: {record.painLevels.join(', ')}</span>
-                          )}
+                          <span className={`font-medium ${text}`}>{new Date(record.date + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+                          {record.painLevels?.length > 0 && <span className={`text-sm ${muted}`}>Pain: {record.painLevels.join(', ')}</span>}
                         </div>
                         <p className={`${text} text-sm`}>{record.appointments}</p>
                       </div>
@@ -688,26 +469,14 @@
           )}
 
           <div className={`fixed bottom-0 left-0 right-0 max-w-2xl mx-auto ${card} border-t ${border} flex`}>
-            <button 
-              onClick={() => setActiveView('calendar')} 
-              className={`flex-1 py-4 flex flex-col items-center gap-1 ${activeView === 'calendar' ? 'text-blue-600' : muted}`}
-            >
-              <span className="text-2xl">📅</span>
-              <span className="text-xs">Calendar</span>
+            <button onClick={() => setActiveView('calendar')} className={`flex-1 py-4 flex flex-col items-center gap-1 ${activeView === 'calendar' ? 'text-blue-600' : muted}`}>
+              <span className="text-2xl">📅</span><span className="text-xs">Calendar</span>
             </button>
-            <button 
-              onClick={() => setActiveView('stats')} 
-              className={`flex-1 py-4 flex flex-col items-center gap-1 ${activeView === 'stats' ? 'text-blue-600' : muted}`}
-            >
-              <span className="text-2xl">📊</span>
-              <span className="text-xs">Stats</span>
+            <button onClick={() => setActiveView('stats')} className={`flex-1 py-4 flex flex-col items-center gap-1 ${activeView === 'stats' ? 'text-blue-600' : muted}`}>
+              <span className="text-2xl">📊</span><span className="text-xs">Stats</span>
             </button>
-            <button 
-              onClick={() => setActiveView('medHistory')} 
-              className={`flex-1 py-4 flex flex-col items-center gap-1 ${activeView === 'medHistory' ? 'text-blue-600' : muted}`}
-            >
-              <span className="text-2xl">🏥</span>
-              <span className="text-xs">History</span>
+            <button onClick={() => setActiveView('medHistory')} className={`flex-1 py-4 flex flex-col items-center gap-1 ${activeView === 'medHistory' ? 'text-blue-600' : muted}`}>
+              <span className="text-2xl">🏥</span><span className="text-xs">History</span>
             </button>
           </div>
         </div>
@@ -716,3 +485,5 @@
 
     ReactDOM.render(<PainTrackerApp />, document.getElementById('root'));
   </script>
+</body>
+</html>
