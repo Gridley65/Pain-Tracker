@@ -20,23 +20,26 @@
   <script type="text/babel">
     const { useState, useEffect } = React;
 
-    // Handles both old locale date strings (e.g. "6/21/2026") and new YYYY-MM-DD format
-    const formatDisplayDate = (dateStr) => {
-      if (!dateStr) return 'Unknown date';
-      if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-        return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-      }
-      const d = new Date(dateStr);
-      if (!isNaN(d)) return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-      return dateStr;
+    // Parses any date string into a JS Date, treating M/D/YYYY as month/day/year explicitly
+    const parseDate = (dateStr) => {
+      if (!dateStr) return null;
+      // New format: YYYY-MM-DD
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return new Date(dateStr + 'T00:00:00');
+      // Old locale format: M/D/YYYY — explicitly parse so month/day never get swapped
+      const slash = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (slash) return new Date(parseInt(slash[3]), parseInt(slash[1]) - 1, parseInt(slash[2]));
+      return null;
     };
 
-    // Converts any date string format to a timestamp for reliable sorting
+    const formatDisplayDate = (dateStr) => {
+      const d = parseDate(dateStr);
+      if (!d || isNaN(d)) return dateStr || 'Unknown date';
+      return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    };
+
     const toTimestamp = (dateStr) => {
-      if (!dateStr) return 0;
-      if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return new Date(dateStr + 'T00:00:00').getTime();
-      const d = new Date(dateStr);
-      return isNaN(d) ? 0 : d.getTime();
+      const d = parseDate(dateStr);
+      return (d && !isNaN(d)) ? d.getTime() : 0;
     };
 
     // FIX 2: Safe localStorage wrapper to handle blocked/unavailable storage
