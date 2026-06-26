@@ -11,8 +11,6 @@
 </head>
 <body>
   <div id="root"></div>
-
-  <!-- FIX 1: Switched from unpkg.com to cdnjs.cloudflare.com for reliability -->
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
@@ -22,11 +20,10 @@
 
     const formatDisplayDate = (dateStr) => {
       if (!dateStr) return 'Unknown date';
-      // Parse YYYY-MM-DD by splitting to avoid any timezone shifting
       const parts = dateStr.split('-');
       if (parts.length === 3) {
         const y = parseInt(parts[0], 10);
-        const m = parseInt(parts[1], 10) - 1; // months are 0-indexed
+        const m = parseInt(parts[1], 10) - 1;
         const d = parseInt(parts[2], 10);
         const date = new Date(y, m, d);
         if (!isNaN(date)) return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
@@ -47,7 +44,6 @@
       return 0;
     };
 
-    // FIX 2: Safe localStorage wrapper to handle blocked/unavailable storage
     const storage = {
       get(key) {
         try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; }
@@ -72,7 +68,6 @@
       const [storageWarning, setStorageWarning] = useState(false);
 
       useEffect(() => {
-        // Check if storage is available
         const testSave = storage.set('_test', 1);
         if (!testSave) setStorageWarning(true);
         else { try { localStorage.removeItem('_test'); } catch {} }
@@ -82,32 +77,22 @@
         const d = storage.get('dark');
         if (d != null) setDarkMode(d);
 
-        // Migrate old locale date strings to YYYY-MM-DD in medHistory and apptHistory
-        // This ensures dates are consistent across Mac, Android, and any other device
         const migrateHistory = (records, entryKeys) => {
           if (!records) return [];
           return records.map(record => {
             if (!record.date) return record;
-            // Already in new format
             if (/^\d{4}-\d{2}-\d{2}$/.test(record.date)) return record;
-            // Try to match old locale string against entry keys by brute-force date comparison
-            // entry keys are "YYYY-M-D" — find one whose date matches the old string
             const matched = entryKeys.find(key => {
               const [y, m, day] = key.split('-').map(Number);
-              const d = new Date(y, m, day);
-              // Compare using multiple locale formats to handle cross-device differences
-              return [
-                d.toLocaleDateString(),
-                d.toLocaleDateString('en-US'),
-                d.toLocaleDateString('en-GB'),
-              ].includes(record.date);
+              const dt = new Date(y, m, day);
+              return [dt.toLocaleDateString(), dt.toLocaleDateString('en-US'), dt.toLocaleDateString('en-GB')].includes(record.date);
             });
             if (matched) {
               const [y, m, day] = matched.split('-').map(Number);
               const iso = `${y}-${String(m+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
               return { ...record, date: iso };
             }
-            return record; // leave unchanged if no match found
+            return record;
           });
         };
 
@@ -115,7 +100,6 @@
         const m = migrateHistory(storage.get('medHistory'), entryKeys);
         setMedHistory(m);
         storage.set('medHistory', m);
-
         const a = migrateHistory(storage.get('apptHistory'), entryKeys);
         setApptHistory(a);
         storage.set('apptHistory', a);
@@ -145,16 +129,15 @@
 
       const painLevels = [
         { level: 10, color: 'bg-purple-600', title: 'Excruciating', desc: 'Take me to the ER' },
-        { level: 9,  color: 'bg-red-900',    title: 'Severe',        desc: "Can't think about anything else" },
-        { level: 8,  color: 'bg-red-600',    title: 'Intense',       desc: 'Hard to think, talk, or listen' },
+        { level: 9,  color: 'bg-red-900',    title: 'Severe',       desc: "Can't think about anything else" },
+        { level: 8,  color: 'bg-red-600',    title: 'Intense',      desc: 'Hard to think, talk, or listen' },
         { level: 7,  color: 'bg-orange-500', title: 'Barely Manageable', desc: 'Prevents activities' },
-        { level: 6,  color: 'bg-yellow-400', title: 'Distressing',   desc: 'Think about it continually' }
+        { level: 6,  color: 'bg-yellow-400', title: 'Distressing',  desc: 'Think about it continually' }
       ];
 
       const save = () => {
         if (!selectedDate || !currentEntry) return;
         const key = `${selectedDate.getFullYear()}-${selectedDate.getMonth()}-${selectedDate.getDate()}`;
-        // FIX 3: Use consistent date format for sorting (YYYY-MM-DD)
         const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth()+1).padStart(2,'0')}-${String(selectedDate.getDate()).padStart(2,'0')}`;
         const oldEntry = entries[key];
 
@@ -207,6 +190,342 @@
 
       const exportExcel = () => {
         let html = '<table border="1"><tr><th>Date</th><th>Pain Levels</th><th>Sleep Quality</th><th>Naps</th><th>Locations</th><th>Triggers</th><th>Barometric Pressure</th><th>Weather Notes</th><th>Notes</th><th>Medications</th><th>Appointments</th></tr>';
+        Object.keys(entries).sort().forEach(key => {
+          const entry = entries[key];
+          const [year, month, day] = key.split('-').map(Number);
+          const date = new Date(year, month, day).toLocaleDateString();
+          html += `<tr><td>${date}</td><td>${entry.painLevels?.join(', ') || ''}</td><td>${entry.sleep?.quality || ''}</td><td>${entry.sleep?.naps?.join(', ') || ''}</td><td>${entry.locations?.join(', ') || ''}</td><td>${entry.triggers?.join(', ') || ''}</td><td>${entry.barometric?.pressure || ''} ${entry.barometric?.trend === 'up' ? '↑' : entry.barometric?.trend === 'down' ? '↓' : ''}</td><td>${entry.weatherNotes || ''}</td><td>${entry.notes || ''}</td><td>${entry.medications || ''}</td><td>${entry.appointments || ''}</td></tr>`;
+        });
+        html += '</table>';
+        const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `pain-tracker-${new Date().toISOString().split('T')[0]}.xls`;
+        a.click(); URL.revokeObjectURL(url);
+      };
+
+      const getColor = (date) => {
+        const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+        const entry = entries[key];
+        if (!entry?.painLevels?.length) return darkMode ? 'bg-green-900 text-green-100' : 'bg-green-100 text-green-800';
+        const max = Math.max(...entry.painLevels);
+        return (painLevels.find(p => p.level === max)?.color || 'bg-green-100') + ' text-white';
+      };
+
+      const bg = darkMode ? 'bg-gray-900' : 'bg-gray-50';
+      const card = darkMode ? 'bg-gray-800' : 'bg-white';
+      const text = darkMode ? 'text-white' : 'text-gray-800';
+      const muted = darkMode ? 'text-gray-400' : 'text-gray-600';
+      const border = darkMode ? 'border-gray-700' : 'border-gray-200';
+
+      if (selectedDate && currentEntry) {
+        if (showWeatherDetail) {
+          return (
+            <div className={`max-w-2xl mx-auto ${bg} min-h-screen`}>
+              <div className={`${card} p-4 flex justify-between items-center`}>
+                <h2 className={`text-xl font-medium ${text}`}>Weather Details</h2>
+                <button onClick={() => setShowWeatherDetail(false)} className="text-blue-600">Back</button>
+              </div>
+              <div className="p-4 space-y-6 pb-24">
+                <div>
+                  <h3 className={`text-lg font-medium mb-3 ${text}`}>Barometric Pressure</h3>
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      value={currentEntry.barometric?.pressure || ''}
+                      onChange={(e) => setCurrentEntry({ ...currentEntry, barometric: { ...currentEntry.barometric, pressure: e.target.value }})}
+                      placeholder="30.12"
+                      className={`w-24 p-3 border-2 ${border} ${card} ${text} rounded-lg`}
+                    />
+                    <button
+                      onClick={() => setCurrentEntry({ ...currentEntry, barometric: { ...currentEntry.barometric, trend: currentEntry.barometric?.trend === 'up' ? null : 'up' }})}
+                      className={`p-3 rounded-lg border-2 ${currentEntry.barometric?.trend === 'up' ? 'bg-blue-500 border-blue-600 text-white' : `${card} ${border} ${text}`}`}
+                    >↑</button>
+                    <button
+                      onClick={() => setCurrentEntry({ ...currentEntry, barometric: { ...currentEntry.barometric, trend: currentEntry.barometric?.trend === 'down' ? null : 'down' }})}
+                      className={`p-3 rounded-lg border-2 ${currentEntry.barometric?.trend === 'down' ? 'bg-red-500 border-red-600 text-white' : `${card} ${border} ${text}`}`}
+                    >↓</button>
+                  </div>
+                </div>
+                <div>
+                  <h3 className={`text-lg font-medium mb-3 ${text}`}>Today's Weather</h3>
+                  <textarea
+                    value={currentEntry.weatherNotes || ''}
+                    onChange={(e) => e.target.value.length <= 220 && setCurrentEntry({ ...currentEntry, weatherNotes: e.target.value })}
+                    className={`w-full p-3 border-2 ${border} ${card} ${text} rounded-lg`}
+                    rows="4" placeholder="Describe today's weather changes..."
+                  />
+                  <div className={`text-sm ${muted} text-right`}>{(currentEntry.weatherNotes || '').length}/220</div>
+                </div>
+                <button onClick={() => setShowWeatherDetail(false)} className="w-full bg-blue-600 text-white py-4 rounded-lg font-medium">Done</button>
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <div className={`max-w-2xl mx-auto ${bg} min-h-screen`}>
+            <div className={`${card} p-4 flex justify-between items-center`}>
+              <h2 className={`text-xl font-medium ${text}`}>
+                {selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+              </h2>
+              <button onClick={() => setSelectedDate(null)} className="text-blue-600">Cancel</button>
+            </div>
+            <div className="p-4 space-y-6 pb-24">
+              <div>
+                <h3 className={`text-lg font-medium mb-3 ${text}`}>Pain Level</h3>
+                {painLevels.map(({ level, color, title, desc }) => (
+                  <button
+                    key={level}
+                    onClick={() => setCurrentEntry({ ...currentEntry, painLevels: currentEntry.painLevels.includes(level) ? currentEntry.painLevels.filter(l => l !== level) : [...currentEntry.painLevels, level] })}
+                    className={`w-full text-left p-4 rounded-lg border-2 mb-2 ${currentEntry.painLevels.includes(level) ? `${color} text-white` : `${card} ${border}`}`}
+                  >
+                    <div className="flex gap-3">
+                      <span className="text-3xl font-bold">{level}</span>
+                      <div><div className="font-medium">{title}</div><div className="text-sm opacity-90">{desc}</div></div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              <div>
+                <h3 className={`text-lg font-medium mb-3 ${text}`}>Sleep</h3>
+                <div className="flex gap-2 mb-3">
+                  {['Amazing', 'Good', 'Okay', 'Poor'].map(q => (
+                    <button key={q}
+                      onClick={() => setCurrentEntry({ ...currentEntry, sleep: { ...currentEntry.sleep, quality: q }})}
+                      className={`px-4 py-2 rounded-full font-medium ${currentEntry.sleep.quality === q ? (q === 'Amazing' ? 'bg-green-500' : q === 'Good' ? 'bg-green-400' : q === 'Okay' ? 'bg-yellow-400' : 'bg-red-500') + ' text-white' : darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'}`}
+                    >{q}</button>
+                  ))}
+                </div>
+                <p className={`text-sm font-medium ${text} mb-2`}>Naps</p>
+                <div className="flex gap-2">
+                  {['Morning', 'Afternoon', 'Evening'].map(t => (
+                    <button key={t}
+                      onClick={() => setCurrentEntry({ ...currentEntry, sleep: { ...currentEntry.sleep, naps: currentEntry.sleep.naps.includes(t) ? currentEntry.sleep.naps.filter(n => n !== t) : [...currentEntry.sleep.naps, t] }})}
+                      className={`px-4 py-2 rounded-lg border-2 ${currentEntry.sleep.naps.includes(t) ? 'bg-blue-500 text-white' : `${card} ${border} ${text}`}`}
+                    >{t}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h3 className={`text-lg font-medium mb-3 ${text}`}>Location</h3>
+                <div className="flex gap-2 flex-wrap">
+                  {['Forehead', 'Left Temple', 'Right Temple', 'Back of Head', 'Top of Head'].map(l => (
+                    <button key={l}
+                      onClick={() => setCurrentEntry({ ...currentEntry, locations: currentEntry.locations.includes(l) ? currentEntry.locations.filter(x => x !== l) : [...currentEntry.locations, l] })}
+                      className={`px-4 py-2 rounded-lg border-2 ${currentEntry.locations.includes(l) ? 'bg-blue-500 text-white' : `${card} ${border} ${text}`}`}
+                    >{l}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h3 className={`text-lg font-medium mb-3 ${text}`}>Triggers</h3>
+                <div className="flex gap-2 flex-wrap">
+                  {['Activity', 'Stress', 'Exercise', 'Sleep', 'Weather', 'Public Speaking'].map(t => (
+                    <button key={t}
+                      onClick={() => {
+                        const newTriggers = currentEntry.triggers.includes(t) ? currentEntry.triggers.filter(x => x !== t) : [...currentEntry.triggers, t];
+                        setCurrentEntry({ ...currentEntry, triggers: newTriggers });
+                        if (t === 'Weather' && !currentEntry.triggers.includes(t)) setShowWeatherDetail(true);
+                      }}
+                      className={`px-3 py-2 text-sm rounded-lg border-2 ${currentEntry.triggers.includes(t) ? 'bg-orange-500 text-white' : `${card} ${border} ${text}`}`}
+                    >{t}</button>
+                  ))}
+                </div>
+                {currentEntry.triggers.includes('Weather') && (
+                  <div className={`mt-4 p-3 ${darkMode ? 'bg-gray-700' : 'bg-gray-50'} rounded-lg border ${border}`}>
+                    <div className={`text-sm font-medium ${text} mb-1`}>Weather Details:</div>
+                    {currentEntry.barometric?.pressure && <div className={`text-sm ${text}`}>Pressure: {currentEntry.barometric.pressure} {currentEntry.barometric?.trend === 'up' ? '↑' : currentEntry.barometric?.trend === 'down' ? '↓' : ''}</div>}
+                    {currentEntry.weatherNotes && <div className={`text-sm ${text}`}>{currentEntry.weatherNotes}</div>}
+                    {!currentEntry.barometric?.pressure && !currentEntry.weatherNotes && <div className={`text-sm ${muted} italic`}>Click Weather to add details</div>}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <h3 className={`text-lg font-medium mb-3 ${text}`}>Notes</h3>
+                <textarea value={currentEntry.notes} onChange={(e) => e.target.value.length <= 440 && setCurrentEntry({ ...currentEntry, notes: e.target.value })} className={`w-full p-3 border-2 ${border} ${card} ${text} rounded-lg`} rows="4" placeholder="Notes..." />
+                <div className={`text-sm ${muted} text-right`}>{currentEntry.notes.length}/440</div>
+              </div>
+
+              <div>
+                <h3 className={`text-lg font-medium mb-3 ${text}`}>Medications</h3>
+                <textarea value={currentEntry.medications} onChange={(e) => e.target.value.length <= 240 && setCurrentEntry({ ...currentEntry, medications: e.target.value })} className={`w-full p-3 border-2 ${border} ${card} ${text} rounded-lg`} rows="3" placeholder="Medications..." />
+                <div className={`text-sm ${muted} text-right`}>{currentEntry.medications.length}/240</div>
+              </div>
+
+              <div>
+                <h3 className={`text-lg font-medium mb-3 ${text}`}>Medical Appointments</h3>
+                <textarea value={currentEntry.appointments} onChange={(e) => e.target.value.length <= 440 && setCurrentEntry({ ...currentEntry, appointments: e.target.value })} className={`w-full p-3 border-2 ${border} ${card} ${text} rounded-lg`} rows="4" placeholder="Appointments, procedures, tests..." />
+                <div className={`text-sm ${muted} text-right`}>{currentEntry.appointments.length}/440</div>
+              </div>
+
+              <button onClick={save} className="w-full bg-blue-600 text-white py-4 rounded-lg font-medium">Save Entry</button>
+            </div>
+          </div>
+        );
+      }
+
+      const { daysInMonth, startingDayOfWeek } = (() => {
+        const y = currentDate.getFullYear(), m = currentDate.getMonth();
+        return { daysInMonth: new Date(y, m + 1, 0).getDate(), startingDayOfWeek: new Date(y, m, 1).getDay() };
+      })();
+
+      return (
+        <div className={`max-w-2xl mx-auto ${bg} min-h-screen`}>
+          <div className={`${card} p-4 flex justify-between items-center`}>
+            <h1 className={`text-2xl font-medium ${text}`}>Pain Tracker</h1>
+            <button onClick={() => { const n = !darkMode; setDarkMode(n); storage.set('dark', n); }} className="text-2xl">
+              {darkMode ? '☀️' : '🌙'}
+            </button>
+          </div>
+
+          {storageWarning && (
+            <div className="bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-2 text-sm text-center">
+              ⚠️ Storage unavailable — data will not be saved between sessions. Try a different browser or disable private/incognito mode.
+            </div>
+          )}
+
+          {activeView === 'calendar' && (
+            <div className={`${card} p-4`}>
+              <div className="flex justify-between items-center mb-6">
+                <button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1))} className="p-2 text-2xl">←</button>
+                <h2 className={`text-2xl font-medium ${text}`}>{currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</h2>
+                <button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1))} className="p-2 text-2xl">→</button>
+              </div>
+              <div className="grid grid-cols-7 gap-2 mb-2">
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+                  <div key={d} className={`text-center text-sm ${muted}`}>{d}</div>
+                ))}
+              </div>
+              <div className="grid grid-cols-7 gap-2">
+                {Array(startingDayOfWeek).fill(0).map((_, i) => <div key={i} />)}
+                {Array(daysInMonth).fill(0).map((_, i) => {
+                  const d = new Date(currentDate.getFullYear(), currentDate.getMonth(), i + 1);
+                  return (
+                    <button key={i} onClick={() => setSelectedDate(d)} className={`aspect-square rounded-lg font-medium text-lg ${getColor(d)}`}>
+                      {i + 1}
+                    </button>
+                  );
+                })}
+              </div>
+              <button onClick={() => setSelectedDate(new Date())} className="fixed bottom-20 right-4 bg-blue-600 text-white p-4 rounded-full shadow-lg z-10 text-2xl">+</button>
+            </div>
+          )}
+
+          {activeView === 'stats' && (
+            <div className={`${card} p-4 pb-24`}>
+              <h2 className={`text-2xl font-medium mb-6 ${text}`}>Statistics</h2>
+              {Object.keys(entries).length === 0 ? (
+                <p className={`${muted} text-center py-12`}>No entries yet</p>
+              ) : (() => {
+                const counts = {};
+                let total = 0;
+                Object.values(entries).forEach(e => {
+                  if (e.painLevels?.length) { total++; e.painLevels.forEach(l => counts[l] = (counts[l] || 0) + 1); }
+                });
+                const avg = total ? Object.entries(counts).reduce((s, [l, c]) => s + l * c, 0) / Object.values(counts).reduce((s, c) => s + c, 0) : 0;
+                return (
+                  <div>
+                    <div className={`${darkMode ? 'bg-blue-900' : 'bg-blue-50'} rounded-lg p-4 mb-6`}>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div><p className={`text-sm ${muted}`}>Entries</p><p className={`text-2xl font-bold ${darkMode ? 'text-blue-100' : 'text-blue-600'}`}>{Object.keys(entries).length}</p></div>
+                        <div><p className={`text-sm ${muted}`}>Pain Days</p><p className={`text-2xl font-bold ${darkMode ? 'text-blue-100' : 'text-blue-600'}`}>{total}</p></div>
+                        <div className="col-span-2"><p className={`text-sm ${muted}`}>Avg Pain</p><p className={`text-2xl font-bold ${darkMode ? 'text-blue-100' : 'text-blue-600'}`}>{avg.toFixed(1)}</p></div>
+                      </div>
+                    </div>
+                    {painLevels.map(({ level, color, title }) => {
+                      const c = counts[level] || 0;
+                      const p = total ? (c / total) * 100 : 0;
+                      return (
+                        <div key={level} className="flex items-center gap-3 mb-2">
+                          <div className={`w-8 h-8 rounded ${color} flex items-center justify-center text-white font-bold text-sm`}>{level}</div>
+                          <div className="flex-1">
+                            <div className={`flex justify-between text-sm ${text}`}><span>{title}</span><span className={muted}>{c} days</span></div>
+                            <div className={`h-2 ${darkMode ? 'bg-gray-700' : 'bg-gray-200'} rounded-full`}>
+                              <div className={color} style={{ width: `${p}%`, height: '100%' }} />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div className="space-y-2 mt-6">
+                      <button onClick={exportJSON} className={`w-full ${darkMode ? 'bg-gray-700' : 'bg-gray-800'} text-white py-3 rounded-lg font-medium`}>📋 Export as JSON</button>
+                      <button onClick={exportCSV} className={`w-full ${darkMode ? 'bg-gray-700' : 'bg-gray-800'} text-white py-3 rounded-lg font-medium`}>📊 Export as CSV</button>
+                      <button onClick={exportExcel} className={`w-full ${darkMode ? 'bg-gray-700' : 'bg-gray-800'} text-white py-3 rounded-lg font-medium`}>📈 Export as Excel</button>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
+          {activeView === 'medHistory' && (
+            <div className={`${card} p-4 pb-24 overflow-y-auto`}>
+              <h2 className={`text-2xl font-medium mb-6 ${text}`}>Medical History</h2>
+
+              {medHistory.length > 0 && (
+                <div className="mb-8">
+                  <h3 className={`text-lg font-medium mb-3 ${text}`}>Medications</h3>
+                  <div className="space-y-4">
+                    {medHistory.slice().sort((a, b) => toTimestamp(b.date) - toTimestamp(a.date)).map((record, idx) => (
+                      <div key={idx} className={`${darkMode ? 'bg-gray-700' : 'bg-gray-50'} rounded-lg p-4 border ${border}`}>
+                        <div className="flex justify-between items-start mb-2">
+                          <span className={`font-medium ${text}`}>{formatDisplayDate(record.date)}</span>
+                          {record.painLevels?.length > 0 && <span className={`text-sm ${muted}`}>Pain: {record.painLevels.join(', ')}</span>}
+                        </div>
+                        <p className={`${text} text-sm`}>{record.medications}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {apptHistory.length > 0 && (
+                <div>
+                  <h3 className={`text-lg font-medium mb-3 ${text}`}>Appointments</h3>
+                  <div className="space-y-4">
+                    {apptHistory.slice().sort((a, b) => toTimestamp(b.date) - toTimestamp(a.date)).map((record, idx) => (
+                      <div key={idx} className={`${darkMode ? 'bg-gray-700' : 'bg-gray-50'} rounded-lg p-4 border ${border}`}>
+                        <div className="flex justify-between items-start mb-2">
+                          <span className={`font-medium ${text}`}>{formatDisplayDate(record.date)}</span>
+                          {record.painLevels?.length > 0 && <span className={`text-sm ${muted}`}>Pain: {record.painLevels.join(', ')}</span>}
+                        </div>
+                        <p className={`${text} text-sm`}>{record.appointments}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {medHistory.length === 0 && apptHistory.length === 0 && (
+                <p className={`${muted} text-center py-12`}>No medical history recorded yet</p>
+              )}
+            </div>
+          )}
+
+          <div className={`fixed bottom-0 left-0 right-0 max-w-2xl mx-auto ${card} border-t ${border} flex`}>
+            <button onClick={() => setActiveView('calendar')} className={`flex-1 py-4 flex flex-col items-center gap-1 ${activeView === 'calendar' ? 'text-blue-600' : muted}`}>
+              <span className="text-2xl">📅</span><span className="text-xs">Calendar</span>
+            </button>
+            <button onClick={() => setActiveView('stats')} className={`flex-1 py-4 flex flex-col items-center gap-1 ${activeView === 'stats' ? 'text-blue-600' : muted}`}>
+              <span className="text-2xl">📊</span><span className="text-xs">Stats</span>
+            </button>
+            <button onClick={() => setActiveView('medHistory')} className={`flex-1 py-4 flex flex-col items-center gap-1 ${activeView === 'medHistory' ? 'text-blue-600' : muted}`}>
+              <span className="text-2xl">🏥</span><span className="text-xs">History</span>
+            </button>
+          </div>
+        </div>
+      );
+    };
+
+    ReactDOM.render(<PainTrackerApp />, document.getElementById('root'));
+  </script>
+</body>
+</html>        let html = '<table border="1"><tr><th>Date</th><th>Pain Levels</th><th>Sleep Quality</th><th>Naps</th><th>Locations</th><th>Triggers</th><th>Barometric Pressure</th><th>Weather Notes</th><th>Notes</th><th>Medications</th><th>Appointments</th></tr>';
         Object.keys(entries).sort().forEach(key => {
           const entry = entries[key];
           const [year, month, day] = key.split('-').map(Number);
