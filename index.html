@@ -128,11 +128,17 @@
       }, [selectedDate]);
 
       const painLevels = [
-        { level: 10, color: 'bg-purple-600', title: 'Excruciating', desc: 'Take me to the ER' },
-        { level: 9,  color: 'bg-red-900',    title: 'Severe',       desc: "Can't think about anything else" },
-        { level: 8,  color: 'bg-red-600',    title: 'Intense',      desc: 'Hard to think, talk, or listen' },
-        { level: 7,  color: 'bg-orange-500', title: 'Barely Manageable', desc: 'Prevents activities' },
-        { level: 6,  color: 'bg-yellow-400', title: 'Distressing',  desc: 'Think about it continually' }
+        { level: 10, color: 'bg-purple-600',  title: 'Excruciating', desc: 'The pain is overwhelming, take me to the ER.' },
+        { level: 9,  color: 'bg-red-900',     title: 'Debilitating', desc: "Can't think about anything else; any activity is too much." },
+        { level: 8,  color: 'bg-red-600',     title: 'Relentless',   desc: 'Unending & mentally overwhelming. Conversations & thinking is exhausting.' },
+        { level: 7,  color: 'bg-orange-500',  title: 'Exhausting',   desc: 'The pain wears me down; I am always aware of it. Keeps me from doing a lot of what I need to do.' },
+        { level: 6,  color: 'bg-yellow-500',  title: 'Draining',     desc: 'Mentally, physically and emotionally tiring; constantly thinking about it. Keeps me from doing some activities.' },
+        { level: 5,  color: 'bg-yellow-300',  title: 'Aggravating',  desc: 'Interferes with focus; harder to ignore; may affect my emotions.' },
+        { level: 4,  color: 'bg-lime-400',    title: 'Bothersome',   desc: 'Noticeable and irritating; occasionally distracting, but I can still handle most activity.' },
+        { level: 3,  color: 'bg-green-400',   title: 'Nagging',      desc: 'Persistent, low grade pain, but I can ignore it with little effort.' },
+        { level: 2,  color: 'bg-green-500',   title: 'Minor',        desc: 'Easy to ignore; has zero mental or physical impact.' },
+        { level: 1,  color: 'bg-green-600',   title: 'Slight',       desc: 'Barely noticeable; more of an awareness than a problem.' },
+        { level: 0,  color: 'bg-green-700',   title: 'Pain Free',    desc: '' },
       ];
 
       const save = () => {
