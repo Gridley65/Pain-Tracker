@@ -1,0 +1,13 @@
+{
+  "name": "pain-tracker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pain Tracker app",
+  "scripts": {
+    "dev": "lite-server",
+    "start": "npm run dev"
+  },
+  "devDependencies": {
+    "lite-server": "^2.6.1"
+  }
+}
