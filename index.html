@@ -1,668 +1,714 @@
-<!<!DOCTYPE html>
-  <html lang="en">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Pain Tracker">
+  <title>Pain Tracker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
 
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="apple-mobile-web-app-capable" content="yes">
-      <meta name="apple-mobile-web-app-status-bar-style" content="default">
-      <meta name="apple-mobile-web-app-title" content="Pain Tracker">
-      <title>Pain Tracker</title>
-      <script src="https://cdn.tailwindcss.com"></script>
-    </head>
+  <script type="text/babel">
+    const { useState, useEffect } = React;
 
-    <body>
-      <div id="root"></div>
-      <script crossorigin
-        src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
-      <script crossorigin
-        src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
-      <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    const formatDisplayDate = (dateStr) => {
+      if (!dateStr) return 'Unknown date';
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        const y = parseInt(parts[0], 10), m = parseInt(parts[1], 10) - 1, d = parseInt(parts[2], 10);
+        const date = new Date(y, m, d);
+        if (!isNaN(date)) return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+      }
+      return dateStr;
+    };
 
-      <script type="text/babel">
-        const { useState, useEffect } = React;
+    const toTimestamp = (dateStr) => {
+      if (!dateStr) return 0;
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        const y = parseInt(parts[0], 10), m = parseInt(parts[1], 10) - 1, d = parseInt(parts[2], 10);
+        const date = new Date(y, m, d);
+        if (!isNaN(date)) return date.getTime();
+      }
+      return 0;
+    };
 
-        const formatDisplayDate = (dateStr) => {
-          if (!dateStr) return 'Unknown date';
-          const parts = dateStr.split('-');
-          if (parts.length === 3) {
-            const y = parseInt(parts[0], 10), m = parseInt(parts[1], 10) - 1, d = parseInt(parts[2], 10);
-            const date = new Date(y, m, d);
-            if (!isNaN(date)) return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-          }
-          return dateStr;
-        };
+    const todayKey = () => {
+      const n = new Date();
+      return `${n.getFullYear()}-${n.getMonth()}-${n.getDate()}`;
+    };
 
-        const toTimestamp = (dateStr) => {
-          if (!dateStr) return 0;
-          const parts = dateStr.split('-');
-          if (parts.length === 3) {
-            const y = parseInt(parts[0], 10), m = parseInt(parts[1], 10) - 1, d = parseInt(parts[2], 10);
-            const date = new Date(y, m, d);
-            if (!isNaN(date)) return date.getTime();
-          }
-          return 0;
-        };
+    const dateToKey = (d) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    const dateToISO = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
-        const todayKey = () => {
-          const n = new Date();
-          return `${n.getFullYear()}-${n.getMonth()}-${n.getDate()}`;
-        };
+    const storage = {
+      get(key) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch { return null; } },
+      set(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); return true; } catch { return false; } }
+    };
 
-        const dateToKey = (d) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-        const dateToISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const PAIN_LEVELS = [
+      { level: 10, color: 'bg-purple-600', title: 'Excruciating', desc: 'The pain is overwhelming, take me to the ER.' },
+      { level: 9,  color: 'bg-red-900',    title: 'Debilitating', desc: "Can't think about anything else; any activity is too much." },
+      { level: 8,  color: 'bg-red-600',    title: 'Relentless',   desc: 'Unending & mentally overwhelming. Conversations & thinking is exhausting.' },
+      { level: 7,  color: 'bg-orange-500', title: 'Exhausting',   desc: 'The pain wears me down; always aware of it. Keeps me from doing a lot of what I need to do.' },
+      { level: 6,  color: 'bg-yellow-500', title: 'Draining',     desc: 'Mentally, physically and emotionally tiring; constantly thinking about it. Keeps me from doing some activities.' },
+      { level: 5,  color: 'bg-yellow-300', title: 'Aggravating',  desc: 'Interferes with focus; harder to ignore; may affect my emotions.' },
+      { level: 4,  color: 'bg-lime-400',   title: 'Bothersome',   desc: 'Noticeable and irritating; occasionally distracting, but I can still handle most activity.' },
+      { level: 3,  color: 'bg-green-400',  title: 'Nagging',      desc: 'Persistent, low grade pain, but I can ignore it with little effort.' },
+      { level: 2,  color: 'bg-green-500',  title: 'Minor',        desc: 'Easy to ignore; has zero mental or physical impact.' },
+      { level: 1,  color: 'bg-green-600',  title: 'Slight',       desc: 'Barely noticeable; more of an awareness than a problem.' },
+      { level: 0,  color: 'bg-green-700',  title: 'Pain Free',    desc: '' },
+    ];
 
-        const storage = {
-          get(key) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch { return null; } },
-          set(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); return true; } catch { return false; } }
-        };
+            const DEFAULT_LOCATIONS = ['Forehead', 'Left Temple', 'Right Temple', 'Back of Head', 'Top of Head'];
+    const TRIGGERS = ['Daily Exertion', 'Exercise', 'Weather', 'Bright Light', 'Flickering Light', 'Loud Noise', 'Strong Smells', 'Screen Time', 'Alcohol', 'Certain Foods'];
+    const IMPACT_SIMPLE = ['Had to rest or lie down', 'Cancelled or avoided activities', 'Missed work or obligations', 'Difficult to concentrate', 'Affected my mood', 'Withdrew from others', 'Needed help from others'];
 
-        const PAIN_LEVELS = [
-          { level: 10, color: 'bg-purple-600', title: 'Excruciating', desc: 'The pain is overwhelming, take me to the ER.' },
-          { level: 9, color: 'bg-red-900', title: 'Debilitating', desc: "Can't think about anything else; any activity is too much." },
-          { level: 8, color: 'bg-red-600', title: 'Relentless', desc: 'Unending & mentally overwhelming. Conversations & thinking is exhausting.' },
-          { level: 7, color: 'bg-orange-500', title: 'Exhausting', desc: 'The pain wears me down; always aware of it. Keeps me from doing a lot of what I need to do.' },
-          { level: 6, color: 'bg-yellow-500', title: 'Draining', desc: 'Mentally, physically and emotionally tiring; constantly thinking about it. Keeps me from doing some activities.' },
-          { level: 5, color: 'bg-yellow-300', title: 'Aggravating', desc: 'Interferes with focus; harder to ignore; may affect my emotions.' },
-          { level: 4, color: 'bg-lime-400', title: 'Bothersome', desc: 'Noticeable and irritating; occasionally distracting, but I can still handle most activity.' },
-          { level: 3, color: 'bg-green-400', title: 'Nagging', desc: 'Persistent, low grade pain, but I can ignore it with little effort.' },
-          { level: 2, color: 'bg-green-500', title: 'Minor', desc: 'Easy to ignore; has zero mental or physical impact.' },
-          { level: 1, color: 'bg-green-600', title: 'Slight', desc: 'Barely noticeable; more of an awareness than a problem.' },
-          { level: 0, color: 'bg-green-700', title: 'Pain Free', desc: '' },
-        ];
+    const emptyEntry = () => ({
+      painLevels: [],
+      locations: [],
+      contributing: { sleep: null, stress: null, fatigue: null, caffeine: null, simple: [] },
+      triggers: [], foodNote: '', weather: { pressure: '', trend: null, tempChange: false, wind: false, notes: '' },
+      impact: { naps: [], simple: [] },
+      rescueMeds: '',
+      notes: '',
+      appointments: ''
+    });
 
-        const LOCATIONS = ['Forehead', 'Left Temple', 'Right Temple', 'Back of Head', 'Top of Head'];
-        const TRIGGERS = ['Daily Exertion', 'Exercise', 'Weather', 'Bright Light', 'Flickering Light', 'Loud Noise', 'Strong Smells', 'Screen Time', 'Alcohol', 'Certain Foods'];
-        const IMPACT_SIMPLE = ['Had to rest or lie down', 'Cancelled or avoided activities', 'Missed work or obligations', 'Difficult to concentrate', 'Affected my mood', 'Withdrew from others', 'Needed help from others'];
+    // ── Chip button ──
+    const Chip = ({ label, selected, onClick, color }) => (
+      <button onClick={onClick}
+        className={`px-3 py-2 text-sm rounded-lg border-2 ${selected ? (color || 'bg-blue-500 border-blue-600') + ' text-white' : 'bg-white border-gray-200 text-gray-800'}`}>
+        {label}
+      </button>
+    );
 
-        const emptyEntry = () => ({
-          painLevels: [],
-          locations: [],
-          contributing: { sleep: null, stress: null, fatigue: null, caffeine: null, simple: [] },
-          triggers: [], foodNote: '', weather: { pressure: '', trend: null, tempChange: false, wind: false, notes: '' },
-          impact: { simple: [] },
-          rescueMeds: '',
-          notes: '',
-          appointments: ''
-        });
-
-        // ── Chip button ──
-        const Chip = ({ label, selected, onClick, color }) => (
-          <button onClick={onClick}
-            className={`px-3 py-2 text-sm rounded-lg border-2 ${selected ? (color || 'bg-blue-500 border-blue-600') + ' text-white' : 'bg-white border-gray-200 text-gray-800'}`}>
-            {label}
+    // ── Scale selector (Good/Okay/Poor style) ──
+    const ScaleSelector = ({ options, value, onChange, colors }) => (
+      <div className="flex gap-2 flex-wrap">
+        {options.map((o, i) => (
+          <button key={o} onClick={() => onChange(value === o ? null : o)}
+            className={`px-4 py-2 rounded-full font-medium text-sm ${value === o ? (colors[i] + ' text-white') : 'bg-gray-100 text-gray-700'}`}>
+            {o}
           </button>
-        );
+        ))}
+      </div>
+    );
 
-        // ── Scale selector (Good/Okay/Poor style) ──
-        const ScaleSelector = ({ options, value, onChange, colors }) => (
-          <div className="flex gap-2 flex-wrap">
-            {options.map((o, i) => (
-              <button key={o} onClick={() => onChange(value === o ? null : o)}
-                className={`px-4 py-2 rounded-full font-medium text-sm ${value === o ? (colors[i] + ' text-white') : 'bg-gray-100 text-gray-700'}`}>
-                {o}
-              </button>
-            ))}
-          </div>
-        );
+    const PainTrackerApp = () => {
+      const [currentDate, setCurrentDate] = useState(new Date());
+      const [selectedDate, setSelectedDate] = useState(null);
+      const [entries, setEntries] = useState({});
+      const [currentEntry, setCurrentEntry] = useState(null);
+      const [activeView, setActiveView] = useState('calendar');
+      const [darkMode, setDarkMode] = useState(false);
+      const [apptHistory, setApptHistory] = useState([]);
+      const [showWeatherDetail, setShowWeatherDetail] = useState(false);
+                const [storageWarning, setStorageWarning] = useState(false);
+          const [locations, setLocations] = useState(DEFAULT_LOCATIONS);
+          const [removedLocations, setRemovedLocations] = useState([]);
+          const [showLocationCustomize, setShowLocationCustomize] = useState(false);
+          const [newLocationText, setNewLocationText] = useState('');
+      // Daily medications state
+      const [dailyMeds, setDailyMeds] = useState([]);
+      const [medChangeHistory, setMedChangeHistory] = useState([]);
+      const [newMedName, setNewMedName] = useState('');
+      const [newMedDose, setNewMedDose] = useState('');
+      const [editingMed, setEditingMed] = useState(null);
+      const [medChangeNote, setMedChangeNote] = useState('');
 
-        const PainTrackerApp = () => {
-          const [currentDate, setCurrentDate] = useState(new Date());
-          const [selectedDate, setSelectedDate] = useState(null);
-          const [entries, setEntries] = useState({});
-          const [currentEntry, setCurrentEntry] = useState(null);
-          const [activeView, setActiveView] = useState('calendar');
-          const [darkMode, setDarkMode] = useState(false);
-          const [apptHistory, setApptHistory] = useState([]);
-          const [showWeatherDetail, setShowWeatherDetail] = useState(false);
-          const [storageWarning, setStorageWarning] = useState(false);
-          // Daily medications state
-          const [dailyMeds, setDailyMeds] = useState([]);
-          const [medChangeHistory, setMedChangeHistory] = useState([]);
-          const [newMedName, setNewMedName] = useState('');
-          const [newMedDose, setNewMedDose] = useState('');
-          const [editingMed, setEditingMed] = useState(null);
-          const [medChangeNote, setMedChangeNote] = useState('');
+      useEffect(() => {
+        const testSave = storage.set('_test', 1);
+        if (!testSave) setStorageWarning(true);
+        else { try { localStorage.removeItem('_test'); } catch {} }
 
-          useEffect(() => {
-            const testSave = storage.set('_test', 1);
-            if (!testSave) setStorageWarning(true);
-            else { try { localStorage.removeItem('_test'); } catch { } }
+        const e = storage.get('entries'); if (e) setEntries(e);
+        const d = storage.get('dark'); if (d != null) setDarkMode(d);
+        const a = storage.get('apptHistory'); if (a) setApptHistory(a);
+                    const dm = storage.get('dailyMeds'); if (dm) setDailyMeds(dm);
+            const locs = storage.get('customLocations'); if (locs) setLocations(locs);
+            const removed = storage.get('removedLocations'); if (removed) setRemovedLocations(removed);
+        const mch = storage.get('medChangeHistory'); if (mch) setMedChangeHistory(mch);
+      }, []);
 
-            const e = storage.get('entries'); if (e) setEntries(e);
-            const d = storage.get('dark'); if (d != null) setDarkMode(d);
-            const a = storage.get('apptHistory'); if (a) setApptHistory(a);
-            const dm = storage.get('dailyMeds'); if (dm) setDailyMeds(dm);
-            const mch = storage.get('medChangeHistory'); if (mch) setMedChangeHistory(mch);
-          }, []);
+      useEffect(() => {
+        if (selectedDate) {
+          const key = dateToKey(selectedDate);
+          const ex = entries[key];
+          setCurrentEntry(ex ? {
+            painLevels: ex.painLevels || [],
+            locations: ex.locations || [],
+            contributing: ex.contributing || { sleep: null, stress: null, fatigue: null, caffeine: null, simple: [] },
+            triggers: ex.triggers || [],
+            foodNote: ex.foodNote || '',
+            weather: ex.weather || { pressure: '', trend: null, tempChange: false, wind: false, notes: '' },
+            impact: ex.impact || { naps: [], simple: [] },
+            rescueMeds: ex.rescueMeds || '',
+            notes: ex.notes || '',
+            appointments: ex.appointments || ''
+          } : emptyEntry());
+        }
+      }, [selectedDate]);
 
-          useEffect(() => {
-            if (selectedDate) {
-              const key = dateToKey(selectedDate);
-              const ex = entries[key];
-              setCurrentEntry(ex ? {
-                painLevels: ex.painLevels || [],
-                locations: ex.locations || [],
-                contributing: ex.contributing || { sleep: null, stress: null, fatigue: null, caffeine: null, simple: [] },
-                triggers: ex.triggers || [],
-                foodNote: ex.foodNote || '',
-                weather: ex.weather || { pressure: '', trend: null, tempChange: false, wind: false, notes: '' },
-                impact: ex.impact || { simple: [] },
-                rescueMeds: ex.rescueMeds || '',
-                notes: ex.notes || '',
-                appointments: ex.appointments || ''
-              } : emptyEntry());
+      const save = () => {
+        if (!selectedDate || !currentEntry) return;
+        const key = dateToKey(selectedDate);
+        const isoDate = dateToISO(selectedDate);
+        const oldEntry = entries[key];
+
+        if (currentEntry.appointments && currentEntry.appointments !== oldEntry?.appointments) {
+          const newAppt = [...apptHistory.filter(r => r.date !== isoDate), {
+            date: isoDate, appointments: currentEntry.appointments,
+            painLevels: currentEntry.painLevels, timestamp: Date.now()
+          }];
+          storage.set('apptHistory', newAppt);
+          setApptHistory(newAppt);
+        }
+
+        const newEntries = { ...entries, [key]: currentEntry };
+        storage.set('entries', newEntries);
+        setEntries(newEntries);
+        setSelectedDate(null);
+        setShowWeatherDetail(false);
+      };
+
+      // Daily med functions
+      const addDailyMed = () => {
+        if (!newMedName.trim()) return;
+        const med = { id: Date.now(), name: newMedName.trim(), dose: newMedDose.trim(), startDate: dateToISO(new Date()) };
+        const updated = [...dailyMeds, med];
+        storage.set('dailyMeds', updated);
+        setDailyMeds(updated);
+        const change = { date: dateToISO(new Date()), type: 'Added', med: med.name, dose: med.dose, note: medChangeNote, timestamp: Date.now() };
+        const updatedHistory = [change, ...medChangeHistory];
+        storage.set('medChangeHistory', updatedHistory);
+        setMedChangeHistory(updatedHistory);
+        setNewMedName(''); setNewMedDose(''); setMedChangeNote('');
+      };
+
+      const removeDailyMed = (med) => {
+        const updated = dailyMeds.filter(m => m.id !== med.id);
+        storage.set('dailyMeds', updated);
+        setDailyMeds(updated);
+        const change = { date: dateToISO(new Date()), type: 'Removed', med: med.name, dose: med.dose, note: medChangeNote, timestamp: Date.now() };
+        const updatedHistory = [change, ...medChangeHistory];
+        storage.set('medChangeHistory', updatedHistory);
+        setMedChangeHistory(updatedHistory);
+        setMedChangeNote('');
+      };
+
+      const saveMedEdit = () => {
+        if (!editingMed) return;
+        const old = dailyMeds.find(m => m.id === editingMed.id);
+        const updated = dailyMeds.map(m => m.id === editingMed.id ? editingMed : m);
+        storage.set('dailyMeds', updated);
+        setDailyMeds(updated);
+        const changes = [];
+        if (old.dose !== editingMed.dose) changes.push(`dose changed from ${old.dose} to ${editingMed.dose}`);
+        if (old.name !== editingMed.name) changes.push(`name changed from ${old.name} to ${editingMed.name}`);
+        if (changes.length) {
+          const change = { date: dateToISO(new Date()), type: 'Modified', med: editingMed.name, detail: changes.join('; '), note: medChangeNote, timestamp: Date.now() };
+          const updatedHistory = [change, ...medChangeHistory];
+          storage.set('medChangeHistory', updatedHistory);
+          setMedChangeHistory(updatedHistory);
+        }
+        setEditingMed(null); setMedChangeNote('');
+      };
+
+                // Location customization functions
+          const removeLocation = (loc) => {
+            const updated = locations.filter(l => l !== loc);
+            storage.set('customLocations', updated);
+            setLocations(updated);
+            if (DEFAULT_LOCATIONS.includes(loc)) {
+              const updatedRemoved = [...removedLocations, loc];
+              storage.set('removedLocations', updatedRemoved);
+              setRemovedLocations(updatedRemoved);
             }
-          }, [selectedDate]);
-
-          const save = () => {
-            if (!selectedDate || !currentEntry) return;
-            const key = dateToKey(selectedDate);
-            const isoDate = dateToISO(selectedDate);
-            const oldEntry = entries[key];
-
-            if (currentEntry.appointments && currentEntry.appointments !== oldEntry?.appointments) {
-              const newAppt = [...apptHistory.filter(r => r.date !== isoDate), {
-                date: isoDate, appointments: currentEntry.appointments,
-                painLevels: currentEntry.painLevels, timestamp: Date.now()
-              }];
-              storage.set('apptHistory', newAppt);
-              setApptHistory(newAppt);
-            }
-
-            const newEntries = { ...entries, [key]: currentEntry };
-            storage.set('entries', newEntries);
-            setEntries(newEntries);
-            setSelectedDate(null);
-            setShowWeatherDetail(false);
           };
 
-          // Daily med functions
-          const addDailyMed = () => {
-            if (!newMedName.trim()) return;
-            const med = { id: Date.now(), name: newMedName.trim(), dose: newMedDose.trim(), startDate: dateToISO(new Date()) };
-            const updated = [...dailyMeds, med];
-            storage.set('dailyMeds', updated);
-            setDailyMeds(updated);
-            const change = { date: dateToISO(new Date()), type: 'Added', med: med.name, dose: med.dose, note: medChangeNote, timestamp: Date.now() };
-            const updatedHistory = [change, ...medChangeHistory];
-            storage.set('medChangeHistory', updatedHistory);
-            setMedChangeHistory(updatedHistory);
-            setNewMedName(''); setNewMedDose(''); setMedChangeNote('');
+          const restoreLocation = (loc) => {
+            // Insert restored preset back in original order
+            const updatedRemoved = removedLocations.filter(l => l !== loc);
+            const updatedLocations = [...DEFAULT_LOCATIONS.filter(l => locations.includes(l) || l === loc), ...locations.filter(l => !DEFAULT_LOCATIONS.includes(l))];
+            storage.set('customLocations', updatedLocations);
+            storage.set('removedLocations', updatedRemoved);
+            setLocations(updatedLocations);
+            setRemovedLocations(updatedRemoved);
           };
 
-          const removeDailyMed = (med) => {
-            const updated = dailyMeds.filter(m => m.id !== med.id);
-            storage.set('dailyMeds', updated);
-            setDailyMeds(updated);
-            const change = { date: dateToISO(new Date()), type: 'Removed', med: med.name, dose: med.dose, note: medChangeNote, timestamp: Date.now() };
-            const updatedHistory = [change, ...medChangeHistory];
-            storage.set('medChangeHistory', updatedHistory);
-            setMedChangeHistory(updatedHistory);
-            setMedChangeNote('');
-          };
-
-          const saveMedEdit = () => {
-            if (!editingMed) return;
-            const old = dailyMeds.find(m => m.id === editingMed.id);
-            const updated = dailyMeds.map(m => m.id === editingMed.id ? editingMed : m);
-            storage.set('dailyMeds', updated);
-            setDailyMeds(updated);
-            const changes = [];
-            if (old.dose !== editingMed.dose) changes.push(`dose changed from ${old.dose} to ${editingMed.dose}`);
-            if (old.name !== editingMed.name) changes.push(`name changed from ${old.name} to ${editingMed.name}`);
-            if (changes.length) {
-              const change = { date: dateToISO(new Date()), type: 'Modified', med: editingMed.name, detail: changes.join('; '), note: medChangeNote, timestamp: Date.now() };
-              const updatedHistory = [change, ...medChangeHistory];
-              storage.set('medChangeHistory', updatedHistory);
-              setMedChangeHistory(updatedHistory);
-            }
-            setEditingMed(null); setMedChangeNote('');
+          const addLocation = () => {
+            const trimmed = newLocationText.trim();
+            if (!trimmed || locations.includes(trimmed)) return;
+            const updated = [...locations, trimmed];
+            storage.set('customLocations', updated);
+            setLocations(updated);
+            setNewLocationText('');
           };
 
           const exportJSON = () => {
-            const blob = new Blob([JSON.stringify(entries, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url; a.download = `pain-tracker-${new Date().toISOString().split('T')[0]}.json`;
-            a.click(); URL.revokeObjectURL(url);
-          };
+        const blob = new Blob([JSON.stringify(entries, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `pain-tracker-${new Date().toISOString().split('T')[0]}.json`;
+        a.click(); URL.revokeObjectURL(url);
+      };
 
-          const exportCSV = () => {
-            let csv = 'Date,Pain Levels,Locations,Sleep,Stress,Fatigue,Caffeine,Other Contributing,Triggers,Food Note,Barometric,Temp Change,Wind,Weather Notes,Impact,Rescue Meds,Notes,Appointments\n';
-            Object.keys(entries).sort().forEach(key => {
-              const e = entries[key];
-              const [y, m, d] = key.split('-').map(Number);
-              const date = new Date(y, m, d).toLocaleDateString();
-              csv += `"${date}","${e.painLevels?.join(', ') || ''}","${e.locations?.join(', ') || ''}","${e.contributing?.sleep || ''}","${e.contributing?.stress || ''}","${e.contributing?.fatigue || ''}","${e.contributing?.caffeine || ''}","${e.contributing?.simple?.join(', ') || ''}","${e.triggers?.join(', ') || ''}","${(e.foodNote || '').replace(/"/g, '""')}","${e.weather?.pressure || ''} ${e.weather?.trend === 'up' ? '↑' : e.weather?.trend === 'down' ? '↓' : ''}","${e.weather?.tempChange ? 'Yes' : ''}","${e.weather?.wind ? 'Yes' : ''}","${(e.weather?.notes || '').replace(/"/g, '""')}","${e.impact?.simple?.join(', ') || ''}","${(e.rescueMeds || '').replace(/"/g, '""')}","${(e.notes || '').replace(/"/g, '""')}","${(e.appointments || '').replace(/"/g, '""')}"\n`;
-            });
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url; a.download = `pain-tracker-${new Date().toISOString().split('T')[0]}.csv`;
-            a.click(); URL.revokeObjectURL(url);
-          };
+      const exportCSV = () => {
+        let csv = 'Date,Pain Levels,Locations,Sleep,Stress,Fatigue,Caffeine,Other Contributing,Triggers,Food Note,Barometric,Temp Change,Wind,Weather Notes,Naps,Impact,Rescue Meds,Notes,Appointments\n';
+        Object.keys(entries).sort().forEach(key => {
+          const e = entries[key];
+          const [y, m, d] = key.split('-').map(Number);
+          const date = new Date(y, m, d).toLocaleDateString();
+          csv += `"${date}","${e.painLevels?.join(', ')||''}","${e.locations?.join(', ')||''}","${e.contributing?.sleep||''}","${e.contributing?.stress||''}","${e.contributing?.fatigue||''}","${e.contributing?.caffeine||''}","${e.contributing?.simple?.join(', ')||''}","${e.triggers?.join(', ')||''}","${(e.foodNote||'').replace(/"/g,'""')}","${e.weather?.pressure||''} ${e.weather?.trend==='up'?'↑':e.weather?.trend==='down'?'↓':''}","${e.weather?.tempChange?'Yes':''}","${e.weather?.wind?'Yes':''}","${(e.weather?.notes||'').replace(/"/g,'""')}","${e.impact?.naps?.join(', ')||''}","${e.impact?.simple?.join(', ')||''}","${(e.rescueMeds||'').replace(/"/g,'""')}","${(e.notes||'').replace(/"/g,'""')}","${(e.appointments||'').replace(/"/g,'""')}"\n`;
+        });
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `pain-tracker-${new Date().toISOString().split('T')[0]}.csv`;
+        a.click(); URL.revokeObjectURL(url);
+      };
 
-          const getColor = (date) => {
-            const key = dateToKey(date);
-            const entry = entries[key];
-            if (!entry?.painLevels?.length) return darkMode ? 'bg-green-900 text-green-100' : 'bg-green-100 text-green-800';
-            const max = Math.max(...entry.painLevels);
-            return (PAIN_LEVELS.find(p => p.level === max)?.color || 'bg-green-100') + ' text-white';
-          };
+      const getColor = (date) => {
+        const key = dateToKey(date);
+        const entry = entries[key];
+        if (!entry?.painLevels?.length) return darkMode ? 'bg-green-900 text-green-100' : 'bg-green-100 text-green-800';
+        const max = Math.max(...entry.painLevels);
+        return (PAIN_LEVELS.find(p => p.level === max)?.color || 'bg-green-100') + ' text-white';
+      };
 
-          const bg = darkMode ? 'bg-gray-900' : 'bg-gray-50';
-          const card = darkMode ? 'bg-gray-800' : 'bg-white';
-          const text = darkMode ? 'text-white' : 'text-gray-800';
-          const muted = darkMode ? 'text-gray-400' : 'text-gray-600';
-          const border = darkMode ? 'border-gray-700' : 'border-gray-200';
-          const inputCls = `w-full p-3 border-2 ${border} ${card} ${text} rounded-lg`;
-          const sectionTitle = `text-lg font-medium mb-3 ${text}`;
+      const bg = darkMode ? 'bg-gray-900' : 'bg-gray-50';
+      const card = darkMode ? 'bg-gray-800' : 'bg-white';
+      const text = darkMode ? 'text-white' : 'text-gray-800';
+      const muted = darkMode ? 'text-gray-400' : 'text-gray-600';
+      const border = darkMode ? 'border-gray-700' : 'border-gray-200';
+      const inputCls = `w-full p-3 border-2 ${border} ${card} ${text} rounded-lg`;
+      const sectionTitle = `text-lg font-medium mb-3 ${text}`;
 
-          // ── Weather detail screen ──
-          if (selectedDate && currentEntry && showWeatherDetail) {
-            const w = currentEntry.weather;
-            const setW = (patch) => setCurrentEntry({ ...currentEntry, weather: { ...w, ...patch } });
-            return (
-              <div className={`max-w-2xl mx-auto ${bg} min-h-screen`}>
-                <div className={`${card} p-4 flex justify-between items-center`}>
-                  <h2 className={`text-xl font-medium ${text}`}>Weather Details</h2>
-                  <button onClick={() => setShowWeatherDetail(false)} className="text-blue-600">Back</button>
-                </div>
-                <div className="p-4 space-y-6 pb-24">
-                  <div>
-                    <h3 className={sectionTitle}>Barometric Pressure</h3>
-                    <div className="flex gap-2 items-center">
-                      <input type="text" value={w.pressure} onChange={(e) => setW({ pressure: e.target.value })} placeholder="30.12" className={`w-24 p-3 border-2 ${border} ${card} ${text} rounded-lg`} />
-                      <button onClick={() => setW({ trend: w.trend === 'up' ? null : 'up' })} className={`p-3 rounded-lg border-2 ${w.trend === 'up' ? 'bg-blue-500 border-blue-600 text-white' : `${card} ${border} ${text}`}`}>↑</button>
-                      <button onClick={() => setW({ trend: w.trend === 'down' ? null : 'down' })} className={`p-3 rounded-lg border-2 ${w.trend === 'down' ? 'bg-red-500 border-red-600 text-white' : `${card} ${border} ${text}`}`}>↓</button>
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className={sectionTitle}>Other Weather Factors</h3>
-                    <div className="flex gap-2 flex-wrap">
-                      <button onClick={() => setW({ tempChange: !w.tempChange })} className={`px-4 py-2 rounded-lg border-2 ${w.tempChange ? 'bg-orange-500 text-white border-orange-600' : `${card} ${border} ${text}`}`}>Temperature Change</button>
-                      <button onClick={() => setW({ wind: !w.wind })} className={`px-4 py-2 rounded-lg border-2 ${w.wind ? 'bg-orange-500 text-white border-orange-600' : `${card} ${border} ${text}`}`}>Wind / Chinook</button>
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className={sectionTitle}>Weather Notes</h3>
-                    <textarea value={w.notes} onChange={(e) => e.target.value.length <= 220 && setW({ notes: e.target.value })} className={inputCls} rows="3" placeholder="Describe today's weather..." />
-                    <div className={`text-sm ${muted} text-right`}>{w.notes.length}/220</div>
-                  </div>
-                  <button onClick={() => setShowWeatherDetail(false)} className="w-full bg-blue-600 text-white py-4 rounded-lg font-medium">Done</button>
-                </div>
-              </div>
-            );
-          }
-
-          // ── Daily entry screen ──
-          if (selectedDate && currentEntry) {
-            const ce = currentEntry;
-            const setCE = (patch) => setCurrentEntry({ ...ce, ...patch });
-            const setContrib = (patch) => setCE({ contributing: { ...ce.contributing, ...patch } });
-            const toggleSimpleContrib = (item) => {
-              const s = ce.contributing.simple;
-              setContrib({ simple: s.includes(item) ? s.filter(x => x !== item) : [...s, item] });
-            };
-            const toggleTrigger = (t) => {
-              const ts = ce.triggers;
-              if (t === 'Weather') {
-                setCE({ triggers: ts.includes(t) ? ts.filter(x => x !== t) : [...ts, t] });
-                if (!ts.includes(t)) setShowWeatherDetail(true);
-              } else {
-                setCE({ triggers: ts.includes(t) ? ts.filter(x => x !== t) : [...ts, t] });
-              }
-            };
-            const toggleImpact = (item) => {
-              const s = ce.impact.simple;
-              setCE({ impact: { ...ce.impact, simple: s.includes(item) ? s.filter(x => x !== item) : [...s, item] } });
-            };
-
-            return (
-              <div className={`max-w-2xl mx-auto ${bg} min-h-screen`}>
-                <div className={`${card} p-4 flex justify-between items-center sticky top-0 z-20 shadow-sm border-b ${darkMode ? 'border-gray-700 bg-gray-900/95' : 'border-gray-200 bg-white/95'} backdrop-blur-sm`}>
-                  <h2 className={`text-xl font-medium ${text}`}>{selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</h2>
-                  <button onClick={() => { setSelectedDate(null); setShowWeatherDetail(false); }} className="text-blue-600">Cancel</button>
-                </div>
-                <div className="p-4 space-y-6 pb-24">
-
-                  {/* Pain Level */}
-                  <div>
-                    <h3 className={sectionTitle}>Pain Level</h3>
-                    {PAIN_LEVELS.map(({ level, color, title, desc }) => (
-                      <button key={level}
-                        onClick={() => setCE({ painLevels: ce.painLevels.includes(level) ? ce.painLevels.filter(l => l !== level) : [...ce.painLevels, level] })}
-                        className={`w-full text-left p-4 rounded-lg border-2 mb-2 ${ce.painLevels.includes(level) ? `${color} text-white` : `${card} ${border}`}`}>
-                        <div className="flex gap-3">
-                          <span className="text-3xl font-bold">{level}</span>
-                          <div><div className="font-medium">{title}</div>{desc && <div className="text-sm opacity-90">{desc}</div>}</div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Pain Location */}
-                  <div>
-                    <h3 className={sectionTitle}>Pain Location</h3>
-                    <div className="flex gap-2 flex-wrap">
-                      {LOCATIONS.map(l => (
-                        <Chip key={l} label={l} selected={ce.locations.includes(l)}
-                          onClick={() => setCE({ locations: ce.locations.includes(l) ? ce.locations.filter(x => x !== l) : [...ce.locations, l] })} />
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Contributing Factors */}
-                  <div>
-                    <h3 className={sectionTitle}>Contributing Factors</h3>
-                    <div className="space-y-4">
-                      <div>
-                        <p className={`text-sm font-medium ${text} mb-2`}>Sleep Quality</p>
-                        <ScaleSelector options={['Good', 'Okay', 'Poor']} value={ce.contributing.sleep}
-                          onChange={(v) => setContrib({ sleep: v })}
-                          colors={['bg-green-400', 'bg-yellow-400', 'bg-red-500']} />
-                      </div>
-                      <div>
-                        <p className={`text-sm font-medium ${text} mb-2`}>Stress Level</p>
-                        <ScaleSelector options={['Mild', 'Significant', 'Severe']} value={ce.contributing.stress}
-                          onChange={(v) => setContrib({ stress: v })}
-                          colors={['bg-yellow-300', 'bg-orange-400', 'bg-red-500']} />
-                      </div>
-                      <div>
-                        <p className={`text-sm font-medium ${text} mb-2`}>Fatigue</p>
-                        <ScaleSelector options={['Mild', 'Significant', 'Severe']} value={ce.contributing.fatigue}
-                          onChange={(v) => setContrib({ fatigue: v })}
-                          colors={['bg-yellow-300', 'bg-orange-400', 'bg-red-500']} />
-                      </div>
-                      <div>
-                        <p className={`text-sm font-medium ${text} mb-2`}>Caffeine</p>
-                        <ScaleSelector options={['Too Much', 'Too Little', 'Withdrawal']} value={ce.contributing.caffeine}
-                          onChange={(v) => setContrib({ caffeine: v })}
-                          colors={['bg-orange-400', 'bg-orange-400', 'bg-red-500']} />
-                      </div>
-                      <div>
-                        <p className={`text-sm font-medium ${text} mb-2`}>Other Factors</p>
-                        <div className="flex gap-2 flex-wrap">
-                          {['Dehydration', 'Skipped Meals', 'Neck Tension', 'Anxiety', 'Hormonal'].map(item => (
-                            <Chip key={item} label={item} selected={ce.contributing.simple.includes(item)}
-                              onClick={() => toggleSimpleContrib(item)} />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Triggers */}
-                  <div>
-                    <h3 className={sectionTitle}>Triggers</h3>
-                    <div className="flex gap-2 flex-wrap">
-                      {TRIGGERS.map(t => (
-                        <Chip key={t} label={t} selected={ce.triggers.includes(t)}
-                          onClick={() => toggleTrigger(t)}
-                          color="bg-orange-500 border-orange-600" />
-                      ))}
-                    </div>
-                    {ce.triggers.includes('Weather') && (
-                      <div className={`mt-3 p-3 ${darkMode ? 'bg-gray-700' : 'bg-gray-50'} rounded-lg border ${border}`}>
-                        <div className={`text-sm font-medium ${text} mb-1`}>Weather Details:</div>
-                        {ce.weather.pressure && <div className={`text-sm ${text}`}>Pressure: {ce.weather.pressure} {ce.weather.trend === 'up' ? '↑' : ce.weather.trend === 'down' ? '↓' : ''}</div>}
-                        {ce.weather.tempChange && <div className={`text-sm ${text}`}>• Temperature Change</div>}
-                        {ce.weather.wind && <div className={`text-sm ${text}`}>• Wind / Chinook</div>}
-                        {ce.weather.notes && <div className={`text-sm ${text}`}>{ce.weather.notes}</div>}
-                        {!ce.weather.pressure && !ce.weather.tempChange && !ce.weather.wind && !ce.weather.notes && (
-                          <div className={`text-sm ${muted} italic`}>Tap Weather again to add details</div>
-                        )}
-                        <button onClick={() => setShowWeatherDetail(true)} className="mt-2 text-blue-600 text-sm">Edit weather details →</button>
-                      </div>
-                    )}
-                    {ce.triggers.includes('Certain Foods') && (
-                      <div className="mt-3">
-                        <input type="text" value={ce.foodNote}
-                          onChange={(e) => e.target.value.length <= 100 && setCE({ foodNote: e.target.value })}
-                          placeholder="What did you eat? (e.g. aged cheese, red wine)"
-                          className={inputCls} />
-                        <div className={`text-sm ${muted} text-right`}>{ce.foodNote.length}/100</div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Impact */}
-                  <div>
-                    <h3 className={sectionTitle}>Impact</h3>
-                    <div className="flex gap-2 flex-wrap">
-                      {IMPACT_SIMPLE.map(item => (
-                        <Chip key={item} label={item} selected={ce.impact.simple.includes(item)}
-                          onClick={() => toggleImpact(item)}
-                          color="bg-purple-500 border-purple-600" />
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Rescue Medications */}
-                  <div>
-                    <h3 className={sectionTitle}>Medications Taken Today</h3>
-                    <textarea value={ce.rescueMeds} onChange={(e) => e.target.value.length <= 240 && setCE({ rescueMeds: e.target.value })} className={inputCls} rows="3" placeholder="Medications taken in response to pain today..." />
-                    <div className={`text-sm ${muted} text-right`}>{ce.rescueMeds.length}/240</div>
-                  </div>
-
-                  {/* Notes */}
-                  <div>
-                    <h3 className={sectionTitle}>Notes</h3>
-                    <textarea value={ce.notes} onChange={(e) => e.target.value.length <= 440 && setCE({ notes: e.target.value })} className={inputCls} rows="4" placeholder="Notes..." />
-                    <div className={`text-sm ${muted} text-right`}>{ce.notes.length}/440</div>
-                  </div>
-
-                  {/* Appointments */}
-                  <div>
-                    <h3 className={sectionTitle}>Medical Appointments</h3>
-                    <textarea value={ce.appointments} onChange={(e) => e.target.value.length <= 440 && setCE({ appointments: e.target.value })} className={inputCls} rows="4" placeholder="Appointments, procedures, tests..." />
-                    <div className={`text-sm ${muted} text-right`}>{ce.appointments.length}/440</div>
-                  </div>
-
-                  <button onClick={save} className="w-full bg-blue-600 text-white py-4 rounded-lg font-medium">Save Entry</button>
-                </div>
-              </div>
-            );
-          }
-
-          // ── Calendar / Stats / History / Medications views ──
-          const { daysInMonth, startingDayOfWeek } = (() => {
-            const y = currentDate.getFullYear(), m = currentDate.getMonth();
-            return { daysInMonth: new Date(y, m + 1, 0).getDate(), startingDayOfWeek: new Date(y, m, 1).getDay() };
-          })();
-
-          return (
-            <div className={`max-w-2xl mx-auto ${bg} min-h-screen`}>
-              <div className={`${card} p-4 flex justify-between items-center`}>
-                <h1 className={`text-2xl font-medium ${text}`}>Pain Tracker</h1>
-                <button onClick={() => { const n = !darkMode; setDarkMode(n); storage.set('dark', n); }} className="text-2xl">{darkMode ? '☀️' : '🌙'}</button>
-              </div>
-
-              {storageWarning && (
-                <div className="bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-2 text-sm text-center">
-                  ⚠️ Storage unavailable — data will not be saved. Try a different browser or disable private mode.
-                </div>
-              )}
-
-              {/* Calendar */}
-              {activeView === 'calendar' && (
-                <div className={`${card} p-4`}>
-                  <div className="flex justify-between items-center mb-6">
-                    <button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1))} className="p-2 text-2xl">←</button>
-                    <h2 className={`text-2xl font-medium ${text}`}>{currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</h2>
-                    <button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1))} className="p-2 text-2xl">→</button>
-                  </div>
-                  <div className="grid grid-cols-7 gap-2 mb-2">
-                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => <div key={d} className={`text-center text-sm ${muted}`}>{d}</div>)}
-                  </div>
-                  <div className="grid grid-cols-7 gap-2">
-                    {Array(startingDayOfWeek).fill(0).map((_, i) => <div key={i} />)}
-                    {Array(daysInMonth).fill(0).map((_, i) => {
-                      const d = new Date(currentDate.getFullYear(), currentDate.getMonth(), i + 1);
-                      return <button key={i} onClick={() => setSelectedDate(d)} className={`aspect-square rounded-lg font-medium text-lg ${getColor(d)}`}>{i + 1}</button>;
-                    })}
-                  </div>
-                  <button onClick={() => setSelectedDate(new Date())} className="fixed bottom-20 right-4 bg-blue-600 text-white px-5 py-4 rounded-full shadow-lg z-10 font-semibold text-sm">Today</button>
-                </div>
-              )}
-
-              {/* Stats */}
-              {activeView === 'stats' && (
-                <div className={`${card} p-4 pb-24`}>
-                  <h2 className={`text-2xl font-medium mb-6 ${text}`}>Statistics</h2>
-                  {Object.keys(entries).length === 0 ? <p className={`${muted} text-center py-12`}>No entries yet</p> : (() => {
-                    const counts = {}; let total = 0;
-                    Object.values(entries).forEach(e => { if (e.painLevels?.length) { total++; e.painLevels.forEach(l => counts[l] = (counts[l] || 0) + 1); } });
-                    const avg = total ? Object.entries(counts).reduce((s, [l, c]) => s + l * c, 0) / Object.values(counts).reduce((s, c) => s + c, 0) : 0;
-                    return (
-                      <div>
-                        <div className={`${darkMode ? 'bg-blue-900' : 'bg-blue-50'} rounded-lg p-4 mb-6`}>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div><p className={`text-sm ${muted}`}>Entries</p><p className={`text-2xl font-bold ${darkMode ? 'text-blue-100' : 'text-blue-600'}`}>{Object.keys(entries).length}</p></div>
-                            <div><p className={`text-sm ${muted}`}>Pain Days</p><p className={`text-2xl font-bold ${darkMode ? 'text-blue-100' : 'text-blue-600'}`}>{total}</p></div>
-                            <div className="col-span-2"><p className={`text-sm ${muted}`}>Avg Pain</p><p className={`text-2xl font-bold ${darkMode ? 'text-blue-100' : 'text-blue-600'}`}>{avg.toFixed(1)}</p></div>
-                          </div>
-                        </div>
-                        {PAIN_LEVELS.map(({ level, color, title }) => {
-                          const c = counts[level] || 0, p = total ? (c / total) * 100 : 0;
-                          return (
-                            <div key={level} className="flex items-center gap-3 mb-2">
-                              <div className={`w-8 h-8 rounded ${color} flex items-center justify-center text-white font-bold text-sm`}>{level}</div>
-                              <div className="flex-1">
-                                <div className={`flex justify-between text-sm ${text}`}><span>{title}</span><span className={muted}>{c} days</span></div>
-                                <div className={`h-2 ${darkMode ? 'bg-gray-700' : 'bg-gray-200'} rounded-full`}><div className={color} style={{ width: `${p}%`, height: '100%' }} /></div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                        <div className="space-y-2 mt-6">
-                          <button onClick={exportJSON} className={`w-full ${darkMode ? 'bg-gray-700' : 'bg-gray-800'} text-white py-3 rounded-lg font-medium`}>📋 Export as JSON</button>
-                          <button onClick={exportCSV} className={`w-full ${darkMode ? 'bg-gray-700' : 'bg-gray-800'} text-white py-3 rounded-lg font-medium`}>📊 Export as CSV</button>
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
-
-              {/* Medical History */}
-              {activeView === 'medHistory' && (
-                <div className={`${card} p-4 pb-24 overflow-y-auto`}>
-                  <h2 className={`text-2xl font-medium mb-6 ${text}`}>Medical History</h2>
-                  {apptHistory.length > 0 ? (
-                    <div className="space-y-4">
-                      {apptHistory.slice().sort((a, b) => toTimestamp(b.date) - toTimestamp(a.date)).map((record, idx) => (
-                        <div key={idx} className={`${darkMode ? 'bg-gray-700' : 'bg-gray-50'} rounded-lg p-4 border ${border}`}>
-                          <div className="flex justify-between items-start mb-2">
-                            <span className={`font-medium ${text}`}>{formatDisplayDate(record.date)}</span>
-                            {record.painLevels?.length > 0 && <span className={`text-sm ${muted}`}>Pain: {record.painLevels.join(', ')}</span>}
-                          </div>
-                          <p className={`${text} text-sm`}>{record.appointments}</p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : <p className={`${muted} text-center py-12`}>No appointments recorded yet</p>}
-                </div>
-              )}
-
-              {/* Daily Medications */}
-              {activeView === 'dailyMeds' && (
-                <div className={`${card} p-4 pb-24 overflow-y-auto`}>
-                  <h2 className={`text-2xl font-medium mb-6 ${text}`}>Daily Medications</h2>
-
-                  {/* Current medications */}
-                  <div className="mb-6">
-                    <h3 className={`text-lg font-medium mb-3 ${text}`}>Current Medications</h3>
-                    {dailyMeds.length === 0 ? (
-                      <p className={`${muted} text-sm mb-4`}>No daily medications added yet.</p>
-                    ) : (
-                      <div className="space-y-3 mb-4">
-                        {dailyMeds.map(med => (
-                          <div key={med.id} className={`${darkMode ? 'bg-gray-700' : 'bg-gray-50'} rounded-lg p-3 border ${border}`}>
-                            {editingMed?.id === med.id ? (
-                              <div className="space-y-2">
-                                <input value={editingMed.name} onChange={(e) => setEditingMed({ ...editingMed, name: e.target.value })} className={inputCls} placeholder="Medication name" />
-                                <input value={editingMed.dose} onChange={(e) => setEditingMed({ ...editingMed, dose: e.target.value })} className={inputCls} placeholder="Dose (e.g. 150mg)" />
-                                <input value={medChangeNote} onChange={(e) => setMedChangeNote(e.target.value)} className={inputCls} placeholder="Note about this change (optional)" />
-                                <div className="flex gap-2">
-                                  <button onClick={saveMedEdit} className="flex-1 bg-blue-600 text-white py-2 rounded-lg text-sm">Save</button>
-                                  <button onClick={() => { setEditingMed(null); setMedChangeNote(''); }} className="flex-1 bg-gray-400 text-white py-2 rounded-lg text-sm">Cancel</button>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="flex justify-between items-center">
-                                <div>
-                                  <div className={`font-medium ${text}`}>{med.name}</div>
-                                  {med.dose && <div className={`text-sm ${muted}`}>{med.dose}</div>}
-                                  <div className={`text-xs ${muted}`}>Since {formatDisplayDate(med.startDate)}</div>
-                                </div>
-                                <div className="flex gap-2">
-                                  <button onClick={() => { setEditingMed({ ...med }); setMedChangeNote(''); }} className="text-blue-600 text-sm px-2">Edit</button>
-                                  <button onClick={() => removeDailyMed(med)} className="text-red-500 text-sm px-2">Remove</button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Add new medication */}
-                    <div className={`${darkMode ? 'bg-gray-700' : 'bg-gray-50'} rounded-lg p-3 border ${border} space-y-2`}>
-                      <p className={`text-sm font-medium ${text}`}>Add Medication</p>
-                      <input value={newMedName} onChange={(e) => setNewMedName(e.target.value)} className={inputCls} placeholder="Medication name" />
-                      <input value={newMedDose} onChange={(e) => setNewMedDose(e.target.value)} className={inputCls} placeholder="Dose (e.g. 150mg twice daily)" />
-                      <input value={medChangeNote} onChange={(e) => setMedChangeNote(e.target.value)} className={inputCls} placeholder="Note (optional)" />
-                      <button onClick={addDailyMed} className="w-full bg-blue-600 text-white py-2 rounded-lg text-sm font-medium">+ Add Medication</button>
-                    </div>
-                  </div>
-
-                  {/* Medication change history */}
-                  <div>
-                    <h3 className={`text-lg font-medium mb-3 ${text}`}>Change History</h3>
-                    {medChangeHistory.length === 0 ? (
-                      <p className={`${muted} text-sm`}>No changes recorded yet.</p>
-                    ) : (
-                      <div className="space-y-3">
-                        {medChangeHistory.map((change, idx) => (
-                          <div key={idx} className={`${darkMode ? 'bg-gray-700' : 'bg-gray-50'} rounded-lg p-3 border ${border}`}>
-                            <div className="flex justify-between items-start mb-1">
-                              <span className={`font-medium ${text} text-sm`}>{formatDisplayDate(change.date)}</span>
-                              <span className={`text-xs px-2 py-1 rounded-full ${change.type === 'Added' ? 'bg-green-100 text-green-800' : change.type === 'Removed' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>{change.type}</span>
-                            </div>
-                            <p className={`text-sm ${text}`}>{change.med} {change.dose ? `— ${change.dose}` : ''}</p>
-                            {change.detail && <p className={`text-xs ${muted}`}>{change.detail}</p>}
-                            {change.note && <p className={`text-xs ${muted} italic`}>{change.note}</p>}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Bottom nav */}
-              <div className={`fixed bottom-0 left-0 right-0 max-w-2xl mx-auto ${card} border-t ${border} flex`}>
-                <button onClick={() => setActiveView('calendar')} className={`flex-1 py-3 flex flex-col items-center gap-1 ${activeView === 'calendar' ? 'text-blue-600' : muted}`}>
-                  <span className="text-xl">📅</span><span className="text-xs">Calendar</span>
-                </button>
-                <button onClick={() => setActiveView('stats')} className={`flex-1 py-3 flex flex-col items-center gap-1 ${activeView === 'stats' ? 'text-blue-600' : muted}`}>
-                  <span className="text-xl">📊</span><span className="text-xs">Stats</span>
-                </button>
-                <button onClick={() => setActiveView('medHistory')} className={`flex-1 py-3 flex flex-col items-center gap-1 ${activeView === 'medHistory' ? 'text-blue-600' : muted}`}>
-                  <span className="text-xl">🏥</span><span className="text-xs">History</span>
-                </button>
-                <button onClick={() => setActiveView('dailyMeds')} className={`flex-1 py-3 flex flex-col items-center gap-1 ${activeView === 'dailyMeds' ? 'text-blue-600' : muted}`}>
-                  <span className="text-xl">💊</span><span className="text-xs">Medications</span>
-                </button>
-              </div>
+      // ── Weather detail screen ──
+      if (selectedDate && currentEntry && showWeatherDetail) {
+        const w = currentEntry.weather;
+        const setW = (patch) => setCurrentEntry({ ...currentEntry, weather: { ...w, ...patch } });
+        return (
+          <div className={`max-w-2xl mx-auto ${bg} min-h-screen`}>
+            <div className={`${card} p-4 flex justify-between items-center`}>
+              <h2 className={`text-xl font-medium ${text}`}>Weather Details</h2>
+              <button onClick={() => setShowWeatherDetail(false)} className="text-blue-600">Back</button>
             </div>
-          );
+            <div className="p-4 space-y-6 pb-24">
+              <div>
+                <h3 className={sectionTitle}>Barometric Pressure</h3>
+                <div className="flex gap-2 items-center">
+                  <input type="text" value={w.pressure} onChange={(e) => setW({ pressure: e.target.value })} placeholder="30.12" className={`w-24 p-3 border-2 ${border} ${card} ${text} rounded-lg`} />
+                  <button onClick={() => setW({ trend: w.trend === 'up' ? null : 'up' })} className={`p-3 rounded-lg border-2 ${w.trend === 'up' ? 'bg-blue-500 border-blue-600 text-white' : `${card} ${border} ${text}`}`}>↑</button>
+                  <button onClick={() => setW({ trend: w.trend === 'down' ? null : 'down' })} className={`p-3 rounded-lg border-2 ${w.trend === 'down' ? 'bg-red-500 border-red-600 text-white' : `${card} ${border} ${text}`}`}>↓</button>
+                </div>
+              </div>
+              <div>
+                <h3 className={sectionTitle}>Other Weather Factors</h3>
+                <div className="flex gap-2 flex-wrap">
+                  <button onClick={() => setW({ tempChange: !w.tempChange })} className={`px-4 py-2 rounded-lg border-2 ${w.tempChange ? 'bg-orange-500 text-white border-orange-600' : `${card} ${border} ${text}`}`}>Temperature Change</button>
+                  <button onClick={() => setW({ wind: !w.wind })} className={`px-4 py-2 rounded-lg border-2 ${w.wind ? 'bg-orange-500 text-white border-orange-600' : `${card} ${border} ${text}`}`}>Wind / Chinook</button>
+                </div>
+              </div>
+              <div>
+                <h3 className={sectionTitle}>Weather Notes</h3>
+                <textarea value={w.notes} onChange={(e) => e.target.value.length <= 220 && setW({ notes: e.target.value })} className={inputCls} rows="3" placeholder="Describe today's weather..." />
+                <div className={`text-sm ${muted} text-right`}>{w.notes.length}/220</div>
+              </div>
+              <button onClick={() => setShowWeatherDetail(false)} className="w-full bg-blue-600 text-white py-4 rounded-lg font-medium">Done</button>
+            </div>
+          </div>
+        );
+      }
+
+      // ── Daily entry screen ──
+      if (selectedDate && currentEntry) {
+        const ce = currentEntry;
+        const setCE = (patch) => setCurrentEntry({ ...ce, ...patch });
+        const setContrib = (patch) => setCE({ contributing: { ...ce.contributing, ...patch } });
+        const toggleSimpleContrib = (item) => {
+          const s = ce.contributing.simple;
+          setContrib({ simple: s.includes(item) ? s.filter(x => x !== item) : [...s, item] });
+        };
+        const toggleTrigger = (t) => {
+          const ts = ce.triggers;
+          if (t === 'Weather') {
+            setCE({ triggers: ts.includes(t) ? ts.filter(x => x !== t) : [...ts, t] });
+            if (!ts.includes(t)) setShowWeatherDetail(true);
+          } else {
+            setCE({ triggers: ts.includes(t) ? ts.filter(x => x !== t) : [...ts, t] });
+          }
+        };
+        const toggleNap = (n) => {
+          const ns = ce.impact.naps;
+          setCE({ impact: { ...ce.impact, naps: ns.includes(n) ? ns.filter(x => x !== n) : [...ns, n] } });
+        };
+        const toggleImpact = (item) => {
+          const s = ce.impact.simple;
+          setCE({ impact: { ...ce.impact, simple: s.includes(item) ? s.filter(x => x !== item) : [...s, item] } });
         };
 
-        ReactDOM.render(<PainTrackerApp />, document.getElementById('root'));
-      </script>
-    </body>
+        return (
+          <div className={`max-w-2xl mx-auto ${bg} min-h-screen`}>
+            <div className={`${card} p-4 flex justify-between items-center`}>
+              <h2 className={`text-xl font-medium ${text}`}>{selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</h2>
+              <button onClick={() => { setSelectedDate(null); setShowWeatherDetail(false); }} className="text-blue-600">Cancel</button>
+            </div>
+            <div className="p-4 space-y-6 pb-24">
 
-  </html>
+              {/* Pain Level */}
+              <div>
+                <h3 className={sectionTitle}>Pain Level</h3>
+                {PAIN_LEVELS.map(({ level, color, title, desc }) => (
+                  <button key={level}
+                    onClick={() => setCE({ painLevels: ce.painLevels.includes(level) ? ce.painLevels.filter(l => l !== level) : [...ce.painLevels, level] })}
+                    className={`w-full text-left p-4 rounded-lg border-2 mb-2 ${ce.painLevels.includes(level) ? `${color} text-white` : `${card} ${border}`}`}>
+                    <div className="flex gap-3">
+                      <span className="text-3xl font-bold">{level}</span>
+                      <div><div className="font-medium">{title}</div>{desc && <div className="text-sm opacity-90">{desc}</div>}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Pain Location */}
+              <div>
+                <h3 className={sectionTitle}>Pain Location</h3>
+                <div className="flex gap-2 flex-wrap">
+                  {LOCATIONS.map(l => (
+                    <Chip key={l} label={l} selected={ce.locations.includes(l)}
+                      onClick={() => setCE({ locations: ce.locations.includes(l) ? ce.locations.filter(x => x !== l) : [...ce.locations, l] })} />
+                  ))}
+                </div>
+              </div>
+
+              {/* Contributing Factors */}
+              <div>
+                <h3 className={sectionTitle}>Contributing Factors</h3>
+                <div className="space-y-4">
+                  <div>
+                    <p className={`text-sm font-medium ${text} mb-2`}>Sleep Quality</p>
+                    <ScaleSelector options={['Good','Okay','Poor']} value={ce.contributing.sleep}
+                      onChange={(v) => setContrib({ sleep: v })}
+                      colors={['bg-green-400','bg-yellow-400','bg-red-500']} />
+                  </div>
+                  <div>
+                    <p className={`text-sm font-medium ${text} mb-2`}>Stress Level</p>
+                    <ScaleSelector options={['Mild','Significant','Severe']} value={ce.contributing.stress}
+                      onChange={(v) => setContrib({ stress: v })}
+                      colors={['bg-yellow-300','bg-orange-400','bg-red-500']} />
+                  </div>
+                  <div>
+                    <p className={`text-sm font-medium ${text} mb-2`}>Fatigue</p>
+                    <ScaleSelector options={['Mild','Significant','Severe']} value={ce.contributing.fatigue}
+                      onChange={(v) => setContrib({ fatigue: v })}
+                      colors={['bg-yellow-300','bg-orange-400','bg-red-500']} />
+                  </div>
+                  <div>
+                    <p className={`text-sm font-medium ${text} mb-2`}>Caffeine</p>
+                    <ScaleSelector options={['Too Much','Too Little','Withdrawal']} value={ce.contributing.caffeine}
+                      onChange={(v) => setContrib({ caffeine: v })}
+                      colors={['bg-orange-400','bg-orange-400','bg-red-500']} />
+                  </div>
+                  <div>
+                    <p className={`text-sm font-medium ${text} mb-2`}>Other Factors</p>
+                    <div className="flex gap-2 flex-wrap">
+                      {['Dehydration','Skipped Meals','Neck Tension','Anxiety','Hormonal'].map(item => (
+                        <Chip key={item} label={item} selected={ce.contributing.simple.includes(item)}
+                          onClick={() => toggleSimpleContrib(item)} />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Triggers */}
+              <div>
+                <h3 className={sectionTitle}>Triggers</h3>
+                <div className="flex gap-2 flex-wrap">
+                  {TRIGGERS.map(t => (
+                    <Chip key={t} label={t} selected={ce.triggers.includes(t)}
+                      onClick={() => toggleTrigger(t)}
+                      color="bg-orange-500 border-orange-600" />
+                  ))}
+                </div>
+                {ce.triggers.includes('Weather') && (
+                  <div className={`mt-3 p-3 ${darkMode ? 'bg-gray-700' : 'bg-gray-50'} rounded-lg border ${border}`}>
+                    <div className={`text-sm font-medium ${text} mb-1`}>Weather Details:</div>
+                    {ce.weather.pressure && <div className={`text-sm ${text}`}>Pressure: {ce.weather.pressure} {ce.weather.trend === 'up' ? '↑' : ce.weather.trend === 'down' ? '↓' : ''}</div>}
+                    {ce.weather.tempChange && <div className={`text-sm ${text}`}>• Temperature Change</div>}
+                    {ce.weather.wind && <div className={`text-sm ${text}`}>• Wind / Chinook</div>}
+                    {ce.weather.notes && <div className={`text-sm ${text}`}>{ce.weather.notes}</div>}
+                    {!ce.weather.pressure && !ce.weather.tempChange && !ce.weather.wind && !ce.weather.notes && (
+                      <div className={`text-sm ${muted} italic`}>Tap Weather again to add details</div>
+                    )}
+                    <button onClick={() => setShowWeatherDetail(true)} className="mt-2 text-blue-600 text-sm">Edit weather details →</button>
+                  </div>
+                )}
+                {ce.triggers.includes('Certain Foods') && (
+                  <div className="mt-3">
+                    <input type="text" value={ce.foodNote}
+                      onChange={(e) => e.target.value.length <= 100 && setCE({ foodNote: e.target.value })}
+                      placeholder="What did you eat? (e.g. aged cheese, red wine)"
+                      className={inputCls} />
+                    <div className={`text-sm ${muted} text-right`}>{ce.foodNote.length}/100</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Impact */}
+              <div>
+                <h3 className={sectionTitle}>Impact</h3>
+                <div className="space-y-3">
+                  <div>
+                    <p className={`text-sm font-medium ${text} mb-2`}>Naps</p>
+                    <div className="flex gap-2">
+                      {['Morning','Afternoon','Evening'].map(n => (
+                        <Chip key={n} label={n} selected={ce.impact.naps.includes(n)} onClick={() => toggleNap(n)} />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    {IMPACT_SIMPLE.map(item => (
+                      <Chip key={item} label={item} selected={ce.impact.simple.includes(item)}
+                        onClick={() => toggleImpact(item)}
+                        color="bg-purple-500 border-purple-600" />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Rescue Medications */}
+              <div>
+                <h3 className={sectionTitle}>Medications Taken Today</h3>
+                <textarea value={ce.rescueMeds} onChange={(e) => e.target.value.length <= 240 && setCE({ rescueMeds: e.target.value })} className={inputCls} rows="3" placeholder="Medications taken in response to pain today..." />
+                <div className={`text-sm ${muted} text-right`}>{ce.rescueMeds.length}/240</div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <h3 className={sectionTitle}>Notes</h3>
+                <textarea value={ce.notes} onChange={(e) => e.target.value.length <= 440 && setCE({ notes: e.target.value })} className={inputCls} rows="4" placeholder="Notes..." />
+                <div className={`text-sm ${muted} text-right`}>{ce.notes.length}/440</div>
+              </div>
+
+              {/* Appointments */}
+              <div>
+                <h3 className={sectionTitle}>Medical Appointments</h3>
+                <textarea value={ce.appointments} onChange={(e) => e.target.value.length <= 440 && setCE({ appointments: e.target.value })} className={inputCls} rows="4" placeholder="Appointments, procedures, tests..." />
+                <div className={`text-sm ${muted} text-right`}>{ce.appointments.length}/440</div>
+              </div>
+
+              <button onClick={save} className="w-full bg-blue-600 text-white py-4 rounded-lg font-medium">Save Entry</button>
+            </div>
+          </div>
+        );
+      }
+
+      // ── Calendar / Stats / History / Medications views ──
+      const { daysInMonth, startingDayOfWeek } = (() => {
+        const y = currentDate.getFullYear(), m = currentDate.getMonth();
+        return { daysInMonth: new Date(y, m + 1, 0).getDate(), startingDayOfWeek: new Date(y, m, 1).getDay() };
+      })();
+
+      return (
+        <div className={`max-w-2xl mx-auto ${bg} min-h-screen`}>
+          <div className={`${card} p-4 flex justify-between items-center`}>
+            <h1 className={`text-2xl font-medium ${text}`}>Pain Tracker</h1>
+            <button onClick={() => { const n = !darkMode; setDarkMode(n); storage.set('dark', n); }} className="text-2xl">{darkMode ? '☀️' : '🌙'}</button>
+          </div>
+
+          {storageWarning && (
+            <div className="bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-2 text-sm text-center">
+              ⚠️ Storage unavailable — data will not be saved. Try a different browser or disable private mode.
+            </div>
+          )}
+
+          {/* Calendar */}
+          {activeView === 'calendar' && (
+            <div className={`${card} p-4`}>
+              <div className="flex justify-between items-center mb-6">
+                <button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1))} className="p-2 text-2xl">←</button>
+                <h2 className={`text-2xl font-medium ${text}`}>{currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</h2>
+                <button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1))} className="p-2 text-2xl">→</button>
+              </div>
+              <div className="grid grid-cols-7 gap-2 mb-2">
+                {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => <div key={d} className={`text-center text-sm ${muted}`}>{d}</div>)}
+              </div>
+              <div className="grid grid-cols-7 gap-2">
+                {Array(startingDayOfWeek).fill(0).map((_, i) => <div key={i} />)}
+                {Array(daysInMonth).fill(0).map((_, i) => {
+                  const d = new Date(currentDate.getFullYear(), currentDate.getMonth(), i + 1);
+                  return <button key={i} onClick={() => setSelectedDate(d)} className={`aspect-square rounded-lg font-medium text-lg ${getColor(d)}`}>{i + 1}</button>;
+                })}
+              </div>
+              <button onClick={() => setSelectedDate(new Date())} className="fixed bottom-20 right-4 bg-blue-600 text-white px-5 py-4 rounded-full shadow-lg z-10 font-semibold text-sm">Today</button>
+            </div>
+          )}
+
+          {/* Stats */}
+          {activeView === 'stats' && (
+            <div className={`${card} p-4 pb-24`}>
+              <h2 className={`text-2xl font-medium mb-6 ${text}`}>Statistics</h2>
+              {Object.keys(entries).length === 0 ? <p className={`${muted} text-center py-12`}>No entries yet</p> : (() => {
+                const counts = {}; let total = 0;
+                Object.values(entries).forEach(e => { if (e.painLevels?.length) { total++; e.painLevels.forEach(l => counts[l] = (counts[l] || 0) + 1); } });
+                const avg = total ? Object.entries(counts).reduce((s, [l, c]) => s + l * c, 0) / Object.values(counts).reduce((s, c) => s + c, 0) : 0;
+                return (
+                  <div>
+                    <div className={`${darkMode ? 'bg-blue-900' : 'bg-blue-50'} rounded-lg p-4 mb-6`}>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div><p className={`text-sm ${muted}`}>Entries</p><p className={`text-2xl font-bold ${darkMode ? 'text-blue-100' : 'text-blue-600'}`}>{Object.keys(entries).length}</p></div>
+                        <div><p className={`text-sm ${muted}`}>Pain Days</p><p className={`text-2xl font-bold ${darkMode ? 'text-blue-100' : 'text-blue-600'}`}>{total}</p></div>
+                        <div className="col-span-2"><p className={`text-sm ${muted}`}>Avg Pain</p><p className={`text-2xl font-bold ${darkMode ? 'text-blue-100' : 'text-blue-600'}`}>{avg.toFixed(1)}</p></div>
+                      </div>
+                    </div>
+                    {PAIN_LEVELS.map(({ level, color, title }) => {
+                      const c = counts[level] || 0, p = total ? (c / total) * 100 : 0;
+                      return (
+                        <div key={level} className="flex items-center gap-3 mb-2">
+                          <div className={`w-8 h-8 rounded ${color} flex items-center justify-center text-white font-bold text-sm`}>{level}</div>
+                          <div className="flex-1">
+                            <div className={`flex justify-between text-sm ${text}`}><span>{title}</span><span className={muted}>{c} days</span></div>
+                            <div className={`h-2 ${darkMode ? 'bg-gray-700' : 'bg-gray-200'} rounded-full`}><div className={color} style={{ width: `${p}%`, height: '100%' }} /></div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div className="space-y-2 mt-6">
+                      <button onClick={exportJSON} className={`w-full ${darkMode ? 'bg-gray-700' : 'bg-gray-800'} text-white py-3 rounded-lg font-medium`}>📋 Export as JSON</button>
+                      <button onClick={exportCSV} className={`w-full ${darkMode ? 'bg-gray-700' : 'bg-gray-800'} text-white py-3 rounded-lg font-medium`}>📊 Export as CSV</button>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
+          {/* Medical History */}
+          {activeView === 'medHistory' && (
+            <div className={`${card} p-4 pb-24 overflow-y-auto`}>
+              <h2 className={`text-2xl font-medium mb-6 ${text}`}>Medical History</h2>
+              {apptHistory.length > 0 ? (
+                <div className="space-y-4">
+                  {apptHistory.slice().sort((a, b) => toTimestamp(b.date) - toTimestamp(a.date)).map((record, idx) => (
+                    <div key={idx} className={`${darkMode ? 'bg-gray-700' : 'bg-gray-50'} rounded-lg p-4 border ${border}`}>
+                      <div className="flex justify-between items-start mb-2">
+                        <span className={`font-medium ${text}`}>{formatDisplayDate(record.date)}</span>
+                        {record.painLevels?.length > 0 && <span className={`text-sm ${muted}`}>Pain: {record.painLevels.join(', ')}</span>}
+                      </div>
+                      <p className={`${text} text-sm`}>{record.appointments}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : <p className={`${muted} text-center py-12`}>No appointments recorded yet</p>}
+            </div>
+          )}
+
+          {/* Daily Medications */}
+          {activeView === 'dailyMeds' && (
+            <div className={`${card} p-4 pb-24 overflow-y-auto`}>
+              <h2 className={`text-2xl font-medium mb-6 ${text}`}>Daily Medications</h2>
+
+              {/* Current medications */}
+              <div className="mb-6">
+                <h3 className={`text-lg font-medium mb-3 ${text}`}>Current Medications</h3>
+                {dailyMeds.length === 0 ? (
+                  <p className={`${muted} text-sm mb-4`}>No daily medications added yet.</p>
+                ) : (
+                  <div className="space-y-3 mb-4">
+                    {dailyMeds.map(med => (
+                      <div key={med.id} className={`${darkMode ? 'bg-gray-700' : 'bg-gray-50'} rounded-lg p-3 border ${border}`}>
+                        {editingMed?.id === med.id ? (
+                          <div className="space-y-2">
+                            <input value={editingMed.name} onChange={(e) => setEditingMed({ ...editingMed, name: e.target.value })} className={inputCls} placeholder="Medication name" />
+                            <input value={editingMed.dose} onChange={(e) => setEditingMed({ ...editingMed, dose: e.target.value })} className={inputCls} placeholder="Dose (e.g. 150mg)" />
+                            <input value={medChangeNote} onChange={(e) => setMedChangeNote(e.target.value)} className={inputCls} placeholder="Note about this change (optional)" />
+                            <div className="flex gap-2">
+                              <button onClick={saveMedEdit} className="flex-1 bg-blue-600 text-white py-2 rounded-lg text-sm">Save</button>
+                              <button onClick={() => { setEditingMed(null); setMedChangeNote(''); }} className="flex-1 bg-gray-400 text-white py-2 rounded-lg text-sm">Cancel</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <div className={`font-medium ${text}`}>{med.name}</div>
+                              {med.dose && <div className={`text-sm ${muted}`}>{med.dose}</div>}
+                              <div className={`text-xs ${muted}`}>Since {formatDisplayDate(med.startDate)}</div>
+                            </div>
+                            <div className="flex gap-2">
+                              <button onClick={() => { setEditingMed({ ...med }); setMedChangeNote(''); }} className="text-blue-600 text-sm px-2">Edit</button>
+                              <button onClick={() => removeDailyMed(med)} className="text-red-500 text-sm px-2">Remove</button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Add new medication */}
+                <div className={`${darkMode ? 'bg-gray-700' : 'bg-gray-50'} rounded-lg p-3 border ${border} space-y-2`}>
+                  <p className={`text-sm font-medium ${text}`}>Add Medication</p>
+                  <input value={newMedName} onChange={(e) => setNewMedName(e.target.value)} className={inputCls} placeholder="Medication name" />
+                  <input value={newMedDose} onChange={(e) => setNewMedDose(e.target.value)} className={inputCls} placeholder="Dose (e.g. 150mg twice daily)" />
+                  <input value={medChangeNote} onChange={(e) => setMedChangeNote(e.target.value)} className={inputCls} placeholder="Note (optional)" />
+                  <button onClick={addDailyMed} className="w-full bg-blue-600 text-white py-2 rounded-lg text-sm font-medium">+ Add Medication</button>
+                </div>
+              </div>
+
+              {/* Medication change history */}
+              <div>
+                <h3 className={`text-lg font-medium mb-3 ${text}`}>Change History</h3>
+                {medChangeHistory.length === 0 ? (
+                  <p className={`${muted} text-sm`}>No changes recorded yet.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {medChangeHistory.map((change, idx) => (
+                      <div key={idx} className={`${darkMode ? 'bg-gray-700' : 'bg-gray-50'} rounded-lg p-3 border ${border}`}>
+                        <div className="flex justify-between items-start mb-1">
+                          <span className={`font-medium ${text} text-sm`}>{formatDisplayDate(change.date)}</span>
+                          <span className={`text-xs px-2 py-1 rounded-full ${change.type === 'Added' ? 'bg-green-100 text-green-800' : change.type === 'Removed' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>{change.type}</span>
+                        </div>
+                        <p className={`text-sm ${text}`}>{change.med} {change.dose ? `— ${change.dose}` : ''}</p>
+                        {change.detail && <p className={`text-xs ${muted}`}>{change.detail}</p>}
+                        {change.note && <p className={`text-xs ${muted} italic`}>{change.note}</p>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Bottom nav */}
+          <div className={`fixed bottom-0 left-0 right-0 max-w-2xl mx-auto ${card} border-t ${border} flex`}>
+            <button onClick={() => setActiveView('calendar')} className={`flex-1 py-3 flex flex-col items-center gap-1 ${activeView === 'calendar' ? 'text-blue-600' : muted}`}>
+              <span className="text-xl">📅</span><span className="text-xs">Calendar</span>
+            </button>
+            <button onClick={() => setActiveView('stats')} className={`flex-1 py-3 flex flex-col items-center gap-1 ${activeView === 'stats' ? 'text-blue-600' : muted}`}>
+              <span className="text-xl">📊</span><span className="text-xs">Stats</span>
+            </button>
+            <button onClick={() => setActiveView('medHistory')} className={`flex-1 py-3 flex flex-col items-center gap-1 ${activeView === 'medHistory' ? 'text-blue-600' : muted}`}>
+              <span className="text-xl">🏥</span><span className="text-xs">History</span>
+            </button>
+            <button onClick={() => setActiveView('dailyMeds')} className={`flex-1 py-3 flex flex-col items-center gap-1 ${activeView === 'dailyMeds' ? 'text-blue-600' : muted}`}>
+              <span className="text-xl">💊</span><span className="text-xs">Medications</span>
+            </button>
+          </div>
+        </div>
+      );
+    };
+
+    ReactDOM.render(<PainTrackerApp />, document.getElementById('root'));
+  </script>
+</body>
+</html>
