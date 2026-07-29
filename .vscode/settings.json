@@ -1,0 +1,12 @@
+{
+    "files.exclude": {
+        "node_modules/": true
+    },
+    "search.exclude": {
+        "node_modules/": true
+    },
+    "editor.formatOnSave": true,
+    "html.format.indentInnerHtml": true,
+    "files.trimTrailingWhitespace": true,
+    "files.insertFinalNewline": true
+}
