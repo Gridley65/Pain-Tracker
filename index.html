@@ -321,7 +321,7 @@
 
             return (
               <div className={`max-w-2xl mx-auto ${bg} min-h-screen`}>
-                <div className={`${card} p-4 flex justify-between items-center`}>
+                <div className={`${card} p-4 flex justify-between items-center sticky top-0 z-20 shadow-sm border-b ${darkMode ? 'border-gray-700 bg-gray-900/95' : 'border-gray-200 bg-white/95'} backdrop-blur-sm`}>
                   <h2 className={`text-xl font-medium ${text}`}>{selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</h2>
                   <button onClick={() => { setSelectedDate(null); setShowWeatherDetail(false); }} className="text-blue-600">Cancel</button>
                 </div>
