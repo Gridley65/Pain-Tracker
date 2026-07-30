@@ -122,8 +122,15 @@
         const [newMedDose, setNewMedDose] = useState('');
         const [editingMed, setEditingMed] = useState(null);
         const [medChangeNote, setMedChangeNote] = useState('');
+        const [locations, setLocations] = useState(LOCATIONS);
+        const [removedLocations, setRemovedLocations] = useState([]);
+        const [showLocationCustomize, setShowLocationCustomize] = useState(false);
+        const [newLocationText, setNewLocationText] = useState('');
 
         useEffect(() => {
+          const savedLocations = storage.get('customLocations'); if (savedLocations) setLocations(savedLocations);
+          const savedRemoved = storage.get('removedLocations'); if (savedRemoved) setRemovedLocations(savedRemoved);
+
           const testSave = storage.set('_test', 1);
           if (!testSave) setStorageWarning(true);
           else { try { localStorage.removeItem('_test'); } catch { } }
@@ -134,6 +141,33 @@
           const dm = storage.get('dailyMeds'); if (dm) setDailyMeds(dm);
           const mch = storage.get('medChangeHistory'); if (mch) setMedChangeHistory(mch);
         }, []);
+
+        const saveLocations = (nextLocations, nextRemoved) => {
+          setLocations(nextLocations);
+          setRemovedLocations(nextRemoved);
+          storage.set('customLocations', nextLocations);
+          storage.set('removedLocations', nextRemoved);
+        };
+
+        const removeLocation = (loc) => {
+          if (!locations.includes(loc)) return;
+          saveLocations(locations.filter(l => l !== loc), [...removedLocations, loc]);
+          if (currentEntry?.locations?.includes(loc)) {
+            setCurrentEntry({ ...currentEntry, locations: currentEntry.locations.filter(l => l !== loc) });
+          }
+        };
+
+        const restoreLocation = (loc) => {
+          if (!removedLocations.includes(loc)) return;
+          saveLocations([...locations, loc], removedLocations.filter(l => l !== loc));
+        };
+
+        const addLocation = () => {
+          const next = newLocationText.trim();
+          if (!next || locations.includes(next)) return;
+          saveLocations([...locations, next], removedLocations.filter(l => l !== next));
+          setNewLocationText('');
+        };
 
         useEffect(() => {
           if (selectedDate) {
@@ -346,7 +380,7 @@
                   <div className="flex items-center justify-between">
                     <h3 className={sectionTitle}>Pain Location</h3>
                     <button type="button" onClick={() => setShowLocationCustomize(!showLocationCustomize)} className="text-sm font-medium text-blue-600 hover:underline">
-                      Personalize
+                      {showLocationCustomize ? 'Close' : 'Personalize'}
                     </button>
                   </div>
                   <div className="flex gap-2 flex-wrap">
@@ -357,6 +391,13 @@
                   </div>
                   <div className={`overflow-hidden transition-all duration-300 ${showLocationCustomize ? 'max-h-96 opacity-100 mt-4' : 'max-h-0 opacity-0'} `}>
                     <div className={`${showLocationCustomize ? 'pb-4' : 'pb-0'} space-y-4`}>
+                      <div className={`flex items-center justify-between rounded-xl border ${border} ${card} p-4`}>
+                        <div>
+                          <div className={`text-sm font-semibold ${text}`}>Customize locations</div>
+                          <div className={`text-xs ${muted}`}>Tap the X to close</div>
+                        </div>
+                        <button type="button" onClick={() => setShowLocationCustomize(false)} className="text-2xl font-bold leading-none text-gray-500 hover:text-gray-700">×</button>
+                      </div>
                       <div className={`rounded-xl border ${border} ${card} p-4`}>
                         <h4 className={`text-sm font-semibold mb-3 ${text}`}>Current Locations</h4>
                         <div className="flex flex-wrap gap-2">
