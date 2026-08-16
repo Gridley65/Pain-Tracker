@@ -70,9 +70,10 @@
         { level: 0, color: 'bg-green-700', hex: '#047857', title: 'Pain Free', desc: '' },
       ];
 
-      const LOCATIONS = ['Forehead', 'Left Temple', 'Right Temple', 'Back of Head', 'Top of Head'];
-      const TRIGGERS = ['Daily Exertion', 'Exercise', 'Weather', 'Bright Light', 'Flickering Light', 'Loud Noise', 'Strong Smells', 'Screen Time', 'Alcohol', 'Certain Foods'];
-      const IMPACT_SIMPLE = ['Had to rest or lie down', 'Cancelled or avoided activities', 'Missed work or obligations', 'Difficult to concentrate', 'Affected my mood', 'Withdrew from others', 'Needed help from others'];
+      const DEFAULT_LOCATIONS = ['Forehead', 'Left Temple', 'Right Temple', 'Back of Head', 'Top of Head'];
+      const DEFAULT_TRIGGERS = ['Daily Exertion', 'Exercise', 'Weather', 'Bright Light', 'Flickering Light', 'Loud Noise', 'Strong Smells', 'Screen Time', 'Alcohol', 'Certain Foods'];
+      const DEFAULT_IMPACT = ['Had to rest or lie down', 'Cancelled or avoided activities', 'Missed work or obligations', 'Difficult to concentrate', 'Affected my mood', 'Withdrew from others', 'Needed help from others'];
+      const DEFAULT_CONTRIBUTING = ['Dehydration', 'Skipped Meals', 'Neck Tension', 'Anxiety', 'Hormonal'];
 
       const emptyEntry = () => ({
         painLevels: [],
@@ -122,14 +123,32 @@
         const [newMedDose, setNewMedDose] = useState('');
         const [editingMed, setEditingMed] = useState(null);
         const [medChangeNote, setMedChangeNote] = useState('');
-        const [locations, setLocations] = useState(LOCATIONS);
+        const [locations, setLocations] = useState(DEFAULT_LOCATIONS);
         const [removedLocations, setRemovedLocations] = useState([]);
         const [showLocationCustomize, setShowLocationCustomize] = useState(false);
         const [newLocationText, setNewLocationText] = useState('');
+        const [triggers, setTriggers] = useState(DEFAULT_TRIGGERS);
+        const [removedTriggers, setRemovedTriggers] = useState([]);
+        const [showTriggerCustomize, setShowTriggerCustomize] = useState(false);
+        const [newTriggerText, setNewTriggerText] = useState('');
+        const [impactItems, setImpactItems] = useState(DEFAULT_IMPACT);
+        const [removedImpact, setRemovedImpact] = useState([]);
+        const [showImpactCustomize, setShowImpactCustomize] = useState(false);
+        const [newImpactText, setNewImpactText] = useState('');
+        const [contributingItems, setContributingItems] = useState(DEFAULT_CONTRIBUTING);
+        const [removedContributing, setRemovedContributing] = useState([]);
+        const [showContributingCustomize, setShowContributingCustomize] = useState(false);
+        const [newContributingText, setNewContributingText] = useState('');
 
         useEffect(() => {
           const savedLocations = storage.get('customLocations'); if (savedLocations) setLocations(savedLocations);
           const savedRemoved = storage.get('removedLocations'); if (savedRemoved) setRemovedLocations(savedRemoved);
+          const savedTriggers = storage.get('customTriggers'); if (savedTriggers) setTriggers(savedTriggers);
+          const savedRemovedTriggers = storage.get('removedTriggers'); if (savedRemovedTriggers) setRemovedTriggers(savedRemovedTriggers);
+          const savedImpact = storage.get('customImpact'); if (savedImpact) setImpactItems(savedImpact);
+          const savedRemovedImpact = storage.get('removedImpact'); if (savedRemovedImpact) setRemovedImpact(savedRemovedImpact);
+          const savedContributing = storage.get('customContributing'); if (savedContributing) setContributingItems(savedContributing);
+          const savedRemovedContributing = storage.get('removedContributing'); if (savedRemovedContributing) setRemovedContributing(savedRemovedContributing);
 
           const testSave = storage.set('_test', 1);
           if (!testSave) setStorageWarning(true);
@@ -147,6 +166,27 @@
           setRemovedLocations(nextRemoved);
           storage.set('customLocations', nextLocations);
           storage.set('removedLocations', nextRemoved);
+        };
+
+        const saveTriggers = (nextTriggers, nextRemoved) => {
+          setTriggers(nextTriggers);
+          setRemovedTriggers(nextRemoved);
+          storage.set('customTriggers', nextTriggers);
+          storage.set('removedTriggers', nextRemoved);
+        };
+
+        const saveImpact = (nextImpact, nextRemoved) => {
+          setImpactItems(nextImpact);
+          setRemovedImpact(nextRemoved);
+          storage.set('customImpact', nextImpact);
+          storage.set('removedImpact', nextRemoved);
+        };
+
+        const saveContributing = (nextContributing, nextRemoved) => {
+          setContributingItems(nextContributing);
+          setRemovedContributing(nextRemoved);
+          storage.set('customContributing', nextContributing);
+          storage.set('removedContributing', nextRemoved);
         };
 
         const removeLocation = (loc) => {
@@ -167,6 +207,66 @@
           if (!next || locations.includes(next)) return;
           saveLocations([...locations, next], removedLocations.filter(l => l !== next));
           setNewLocationText('');
+        };
+
+        const removeTrigger = (trg) => {
+          if (!triggers.includes(trg)) return;
+          saveTriggers(triggers.filter(t => t !== trg), [...removedTriggers, trg]);
+          if (currentEntry?.triggers?.includes(trg)) {
+            setCurrentEntry({ ...currentEntry, triggers: currentEntry.triggers.filter(t => t !== trg) });
+          }
+        };
+
+        const restoreTrigger = (trg) => {
+          if (!removedTriggers.includes(trg)) return;
+          saveTriggers([...triggers, trg], removedTriggers.filter(t => t !== trg));
+        };
+
+        const addTrigger = () => {
+          const next = newTriggerText.trim();
+          if (!next || triggers.includes(next)) return;
+          saveTriggers([...triggers, next], removedTriggers.filter(t => t !== next));
+          setNewTriggerText('');
+        };
+
+        const removeImpactItem = (item) => {
+          if (!impactItems.includes(item)) return;
+          saveImpact(impactItems.filter(i => i !== item), [...removedImpact, item]);
+          if (currentEntry?.impact?.simple?.includes(item)) {
+            setCurrentEntry({ ...currentEntry, impact: { ...currentEntry.impact, simple: currentEntry.impact.simple.filter(i => i !== item) } });
+          }
+        };
+
+        const restoreImpactItem = (item) => {
+          if (!removedImpact.includes(item)) return;
+          saveImpact([...impactItems, item], removedImpact.filter(i => i !== item));
+        };
+
+        const addImpactItem = () => {
+          const next = newImpactText.trim();
+          if (!next || impactItems.includes(next)) return;
+          saveImpact([...impactItems, next], removedImpact.filter(i => i !== next));
+          setNewImpactText('');
+        };
+
+        const removeContributingItem = (item) => {
+          if (!contributingItems.includes(item)) return;
+          saveContributing(contributingItems.filter(i => i !== item), [...removedContributing, item]);
+          if (currentEntry?.contributing?.simple?.includes(item)) {
+            setCurrentEntry({ ...currentEntry, contributing: { ...currentEntry.contributing, simple: currentEntry.contributing.simple.filter(i => i !== item) } });
+          }
+        };
+
+        const restoreContributingItem = (item) => {
+          if (!removedContributing.includes(item)) return;
+          saveContributing([...contributingItems, item], removedContributing.filter(i => i !== item));
+        };
+
+        const addContributingItem = () => {
+          const next = newContributingText.trim();
+          if (!next || contributingItems.includes(next)) return;
+          saveContributing([...contributingItems, next], removedContributing.filter(i => i !== next));
+          setNewContributingText('');
         };
 
         useEffect(() => {
@@ -465,7 +565,12 @@
 
                 {/* Contributing Factors */}
                 <div>
-                  <h3 className={sectionTitle}>Contributing Factors</h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className={sectionTitle}>Contributing Factors</h3>
+                    <button type="button" onClick={() => setShowContributingCustomize(!showContributingCustomize)} className="text-sm font-medium text-blue-600 hover:underline">
+                      {showContributingCustomize ? 'Close' : 'Personalize'}
+                    </button>
+                  </div>
                   <div className="space-y-4">
                     <div>
                       <p className={`text-sm font-medium ${text} mb-2`}>Sleep Quality</p>
@@ -494,10 +599,48 @@
                     <div>
                       <p className={`text-sm font-medium ${text} mb-2`}>Other Factors</p>
                       <div className="flex gap-2 flex-wrap">
-                        {['Dehydration', 'Skipped Meals', 'Neck Tension', 'Anxiety', 'Hormonal'].map(item => (
+                        {contributingItems.map(item => (
                           <Chip key={item} label={item} selected={ce.contributing.simple.includes(item)}
                             onClick={() => toggleSimpleContrib(item)} />
                         ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div className={`overflow-hidden transition-all duration-300 ${showContributingCustomize ? 'max-h-96 opacity-100 mt-4' : 'max-h-0 opacity-0'} `}>
+                    <div className={`${showContributingCustomize ? 'pb-4' : 'pb-0'} space-y-4`}>
+                      <div className={`rounded-xl border ${border} ${card} p-4`}>
+                        <div className="flex flex-wrap gap-2">
+                          {contributingItems.map((item) => (
+                            <div key={item} className={`flex items-center gap-2 rounded-full border px-3 py-2 ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+                              <span className={`text-sm ${text}`}>{item}</span>
+                              <button type="button" onClick={() => removeContributingItem(item)} className="text-sm text-red-500 hover:text-red-700">✕</button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {removedContributing.length > 0 && (
+                        <div className={`rounded-xl border ${border} ${card} p-4`}>
+                          <h4 className={`text-sm font-semibold mb-3 ${text}`}>Removed Presets</h4>
+                          <div className="space-y-2">
+                            {removedContributing.map((item) => (
+                              <button key={item} type="button" onClick={() => restoreContributingItem(item)} className="flex items-center gap-2 rounded-full border px-3 py-2 text-sm text-blue-600 hover:bg-blue-50">
+                                <span className="text-lg">+</span>
+                                <span>Restore "{item}"</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className={`rounded-xl border ${border} ${card} p-4`}>
+                        <h4 className={`text-sm font-semibold mb-3 ${text}`}>Add Your Own</h4>
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                          <input type="text" value={newContributingText} onChange={(e) => setNewContributingText(e.target.value)} placeholder="Enter factor" className={inputCls} />
+                          <button type="button" onClick={addContributingItem} className="rounded-lg bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700 disabled:bg-blue-300" disabled={!newContributingText.trim()}>
+                            Add
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -505,13 +648,56 @@
 
                 {/* Triggers */}
                 <div>
-                  <h3 className={sectionTitle}>Triggers</h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className={sectionTitle}>Triggers</h3>
+                    <button type="button" onClick={() => setShowTriggerCustomize(!showTriggerCustomize)} className="text-sm font-medium text-blue-600 hover:underline">
+                      {showTriggerCustomize ? 'Close' : 'Personalize'}
+                    </button>
+                  </div>
                   <div className="flex gap-2 flex-wrap">
-                    {TRIGGERS.map(t => (
+                    {triggers.map(t => (
                       <Chip key={t} label={t} selected={ce.triggers.includes(t)}
                         onClick={() => toggleTrigger(t)}
                         color="bg-orange-500 border-orange-600" />
                     ))}
+                  </div>
+                  <div className={`overflow-hidden transition-all duration-300 ${showTriggerCustomize ? 'max-h-96 opacity-100 mt-4' : 'max-h-0 opacity-0'} `}>
+                    <div className={`${showTriggerCustomize ? 'pb-4' : 'pb-0'} space-y-4`}>
+                      <div className={`rounded-xl border ${border} ${card} p-4`}>
+                        <div className="flex flex-wrap gap-2">
+                          {triggers.map((trg) => (
+                            <div key={trg} className={`flex items-center gap-2 rounded-full border px-3 py-2 ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+                              <span className={`text-sm ${text}`}>{trg}</span>
+                              <button type="button" onClick={() => removeTrigger(trg)} className="text-sm text-red-500 hover:text-red-700">✕</button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {removedTriggers.length > 0 && (
+                        <div className={`rounded-xl border ${border} ${card} p-4`}>
+                          <h4 className={`text-sm font-semibold mb-3 ${text}`}>Removed Presets</h4>
+                          <div className="space-y-2">
+                            {removedTriggers.map((trg) => (
+                              <button key={trg} type="button" onClick={() => restoreTrigger(trg)} className="flex items-center gap-2 rounded-full border px-3 py-2 text-sm text-blue-600 hover:bg-blue-50">
+                                <span className="text-lg">+</span>
+                                <span>Restore "{trg}"</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className={`rounded-xl border ${border} ${card} p-4`}>
+                        <h4 className={`text-sm font-semibold mb-3 ${text}`}>Add Your Own</h4>
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                          <input type="text" value={newTriggerText} onChange={(e) => setNewTriggerText(e.target.value)} placeholder="Enter trigger" className={inputCls} />
+                          <button type="button" onClick={addTrigger} className="rounded-lg bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700 disabled:bg-blue-300" disabled={!newTriggerText.trim()}>
+                            Add
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                   {ce.triggers.includes('Weather') && (
                     <div className={`mt-3 p-3 ${darkMode ? 'bg-gray-700' : 'bg-gray-50'} rounded-lg border ${border}`}>
@@ -539,13 +725,56 @@
 
                 {/* Impact */}
                 <div>
-                  <h3 className={sectionTitle}>Impact</h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className={sectionTitle}>Impact</h3>
+                    <button type="button" onClick={() => setShowImpactCustomize(!showImpactCustomize)} className="text-sm font-medium text-blue-600 hover:underline">
+                      {showImpactCustomize ? 'Close' : 'Personalize'}
+                    </button>
+                  </div>
                   <div className="flex gap-2 flex-wrap">
-                    {IMPACT_SIMPLE.map(item => (
+                    {impactItems.map(item => (
                       <Chip key={item} label={item} selected={ce.impact.simple.includes(item)}
                         onClick={() => toggleImpact(item)}
                         color="bg-purple-500 border-purple-600" />
                     ))}
+                  </div>
+                  <div className={`overflow-hidden transition-all duration-300 ${showImpactCustomize ? 'max-h-96 opacity-100 mt-4' : 'max-h-0 opacity-0'} `}>
+                    <div className={`${showImpactCustomize ? 'pb-4' : 'pb-0'} space-y-4`}>
+                      <div className={`rounded-xl border ${border} ${card} p-4`}>
+                        <div className="flex flex-wrap gap-2">
+                          {impactItems.map((item) => (
+                            <div key={item} className={`flex items-center gap-2 rounded-full border px-3 py-2 ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+                              <span className={`text-sm ${text}`}>{item}</span>
+                              <button type="button" onClick={() => removeImpactItem(item)} className="text-sm text-red-500 hover:text-red-700">✕</button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {removedImpact.length > 0 && (
+                        <div className={`rounded-xl border ${border} ${card} p-4`}>
+                          <h4 className={`text-sm font-semibold mb-3 ${text}`}>Removed Presets</h4>
+                          <div className="space-y-2">
+                            {removedImpact.map((item) => (
+                              <button key={item} type="button" onClick={() => restoreImpactItem(item)} className="flex items-center gap-2 rounded-full border px-3 py-2 text-sm text-blue-600 hover:bg-blue-50">
+                                <span className="text-lg">+</span>
+                                <span>Restore "{item}"</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className={`rounded-xl border ${border} ${card} p-4`}>
+                        <h4 className={`text-sm font-semibold mb-3 ${text}`}>Add Your Own</h4>
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                          <input type="text" value={newImpactText} onChange={(e) => setNewImpactText(e.target.value)} placeholder="Enter impact" className={inputCls} />
+                          <button type="button" onClick={addImpactItem} className="rounded-lg bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700 disabled:bg-blue-300" disabled={!newImpactText.trim()}>
+                            Add
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
