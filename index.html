@@ -571,7 +571,7 @@
                       {showContributingCustomize ? 'Close' : 'Personalize'}
                     </button>
                   </div>
-                  <p className={`text-xs ${muted} mb-4`}>Not direct causes of pain, but which may increase the possibility of your experiencing pain.</p>
+                  <p className={`text-xs ${muted} mb-4`}>Not direct causes of pain, but which may increase the possibility of experiencing pain.</p>
                   <div className="space-y-4">
                     <div>
                       <p className={`text-sm font-medium ${text} mb-2`}>Sleep Quality</p>
@@ -655,6 +655,7 @@
                       {showTriggerCustomize ? 'Close' : 'Personalize'}
                     </button>
                   </div>
+                  <p className={`text-xs ${muted} mb-4`}>Direct causes that can result in a pain episode.</p>
                   <div className="flex gap-2 flex-wrap">
                     {triggers.map(t => (
                       <Chip key={t} label={t} selected={ce.triggers.includes(t)}
@@ -732,6 +733,7 @@
                       {showImpactCustomize ? 'Close' : 'Personalize'}
                     </button>
                   </div>
+                  <p className={`text-xs ${muted} mb-4`}>Specific ways that pain has affected your day.</p>
                   <div className="flex gap-2 flex-wrap">
                     {impactItems.map(item => (
                       <Chip key={item} label={item} selected={ce.impact.simple.includes(item)}
