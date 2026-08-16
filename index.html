@@ -523,8 +523,8 @@
                         onClick={() => setCE({ locations: ce.locations.includes(l) ? ce.locations.filter(x => x !== l) : [...ce.locations, l] })} />
                     ))}
                   </div>
-                  <div className={`overflow-hidden transition-all duration-300 ${showLocationCustomize ? 'max-h-96 opacity-100 mt-4' : 'max-h-0 opacity-0'} `}>
-                    <div className={`${showLocationCustomize ? 'pb-4' : 'pb-0'} space-y-4`}>
+                  <div className={`overflow-hidden transition-all duration-300 ${showLocationCustomize ? 'max-h-screen opacity-100 mt-4' : 'max-h-0 opacity-0'} `}>
+                    <div className={`${showLocationCustomize ? 'pb-4' : 'pb-0'} space-y-4 max-h-96 overflow-y-auto`}>
                       <div className={`rounded-xl border ${border} ${card} p-4`}>
                         <div className="flex flex-wrap gap-2">
                           {locations.map((loc) => (
@@ -606,8 +606,8 @@
                       </div>
                     </div>
                   </div>
-                  <div className={`overflow-hidden transition-all duration-300 ${showContributingCustomize ? 'max-h-96 opacity-100 mt-4' : 'max-h-0 opacity-0'} `}>
-                    <div className={`${showContributingCustomize ? 'pb-4' : 'pb-0'} space-y-4`}>
+                  <div className={`overflow-hidden transition-all duration-300 ${showContributingCustomize ? 'max-h-screen opacity-100 mt-4' : 'max-h-0 opacity-0'} `}>
+                    <div className={`${showContributingCustomize ? 'pb-4' : 'pb-0'} space-y-4 max-h-96 overflow-y-auto`}>
                       <div className={`rounded-xl border ${border} ${card} p-4`}>
                         <div className="flex flex-wrap gap-2">
                           {contributingItems.map((item) => (
@@ -661,8 +661,8 @@
                         color="bg-orange-500 border-orange-600" />
                     ))}
                   </div>
-                  <div className={`overflow-hidden transition-all duration-300 ${showTriggerCustomize ? 'max-h-96 opacity-100 mt-4' : 'max-h-0 opacity-0'} `}>
-                    <div className={`${showTriggerCustomize ? 'pb-4' : 'pb-0'} space-y-4`}>
+                  <div className={`overflow-hidden transition-all duration-300 ${showTriggerCustomize ? 'max-h-screen opacity-100 mt-4' : 'max-h-0 opacity-0'} `}>
+                    <div className={`${showTriggerCustomize ? 'pb-4' : 'pb-0'} space-y-4 max-h-96 overflow-y-auto`}>
                       <div className={`rounded-xl border ${border} ${card} p-4`}>
                         <div className="flex flex-wrap gap-2">
                           {triggers.map((trg) => (
@@ -738,8 +738,8 @@
                         color="bg-purple-500 border-purple-600" />
                     ))}
                   </div>
-                  <div className={`overflow-hidden transition-all duration-300 ${showImpactCustomize ? 'max-h-96 opacity-100 mt-4' : 'max-h-0 opacity-0'} `}>
-                    <div className={`${showImpactCustomize ? 'pb-4' : 'pb-0'} space-y-4`}>
+                  <div className={`overflow-hidden transition-all duration-300 ${showImpactCustomize ? 'max-h-screen opacity-100 mt-4' : 'max-h-0 opacity-0'} `}>
+                    <div className={`${showImpactCustomize ? 'pb-4' : 'pb-0'} space-y-4 max-h-96 overflow-y-auto`}>
                       <div className={`rounded-xl border ${border} ${card} p-4`}>
                         <div className="flex flex-wrap gap-2">
                           {impactItems.map((item) => (
