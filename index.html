@@ -89,6 +89,28 @@
         appointments: ''
       });
 
+      const timeToParts = (value) => {
+        if (value && typeof value === 'object') return value;
+        const match = typeof value === 'string' ? value.match(/^([01]\d|2[0-3]):([0-5]\d)$/) : null;
+        if (!match) return { hour: '', minute: '', period: 'AM' };
+        const hour24 = Number(match[1]);
+        return {
+          hour: String(hour24 % 12 || 12),
+          minute: match[2],
+          period: hour24 >= 12 ? 'PM' : 'AM'
+        };
+      };
+
+      const partsToTime = (value) => {
+        const parts = timeToParts(value);
+        if (!parts.hour && !parts.minute) return '';
+        const hour = Number(parts.hour);
+        const minute = Number(parts.minute);
+        if (!parts.hour || !parts.minute || hour < 1 || hour > 12 || minute < 0 || minute > 59 || !['AM', 'PM'].includes(parts.period)) return null;
+        const hour24 = (hour % 12) + (parts.period === 'PM' ? 12 : 0);
+        return `${String(hour24).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+      };
+
       // ── Chip button ──
       const Chip = ({ label, selected, onClick, color }) => (
         <button onClick={onClick}
@@ -344,12 +366,16 @@
 
         const save = () => {
           if (!selectedDate || !currentEntry) return;
-          const validTime = value => !value || /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
-          const hasInvalidLocationTime = Object.values(currentEntry.locationTimes || {}).some(times =>
-            !validTime(times.start) || !validTime(times.end)
-          );
+          const normalizedLocationTimes = {};
+          const hasInvalidLocationTime = Object.entries(currentEntry.locationTimes || {}).some(([loc, times]) => {
+            const start = partsToTime(times.start);
+            const end = partsToTime(times.end);
+            if (start === null || end === null) return true;
+            normalizedLocationTimes[loc] = { start, end };
+            return false;
+          });
           if (hasInvalidLocationTime) {
-            alert('Enter times in 24-hour HH:MM format, or leave them blank.');
+            alert('Enter both the hour and minute for each time, using hours 1-12 and minutes 00-59.');
             return;
           }
           const key = dateToKey(selectedDate);
@@ -365,7 +391,7 @@
             setApptHistory(newAppt);
           }
 
-          const newEntries = { ...entries, [key]: currentEntry };
+          const newEntries = { ...entries, [key]: { ...currentEntry, locationTimes: normalizedLocationTimes } };
           storage.set('entries', newEntries);
           setEntries(newEntries);
           setSelectedDate(null);
@@ -608,7 +634,16 @@
                       {ce.locations.map(loc => {
                         const savedPainTypes = ce.locationPainTypes?.[loc];
                         const selectedPainTypes = Array.isArray(savedPainTypes) ? savedPainTypes : savedPainTypes ? [savedPainTypes] : [];
-                        const times = ce.locationTimes?.[loc] || { start: '', end: '' };
+                        const times = ce.locationTimes?.[loc] || {};
+                        const startParts = timeToParts(times.start);
+                        const endParts = timeToParts(times.end);
+                        const updateTimePart = (field, part, value) => {
+                          const currentParts = timeToParts(times[field]);
+                          const nextParts = { ...currentParts, [part]: value };
+                          if (!currentParts.hour && !currentParts.minute && part !== 'period') nextParts.period = 'AM';
+                          setCE({ locationTimes: { ...ce.locationTimes, [loc]: { ...times, [field]: nextParts } } });
+                        };
+                        const timeInputClass = `w-12 rounded-lg border px-2 py-2 text-center text-sm ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300'}`;
                         return (
                           <div key={loc} className={`grid grid-cols-1 sm:grid-cols-[minmax(8rem,1fr)_minmax(10rem,1.25fr)_minmax(8rem,1fr)_minmax(8rem,1fr)] items-center gap-2 rounded-lg border ${border} ${card} p-3`}>
                             <span className={`text-sm font-medium ${text}`}>{loc}</span>
@@ -635,18 +670,32 @@
                                 ))}
                               </div>
                             </details>
-                            <label className={`flex items-center gap-2 text-xs ${muted}`}>
-                              <span>Start</span>
-                              <input type="text" inputMode="numeric" maxLength="5" placeholder="HH:MM" aria-label={`Start time for ${loc}`} value={times.start || ''}
-                                onChange={(e) => setCE({ locationTimes: { ...ce.locationTimes, [loc]: { ...times, start: e.target.value } } })}
-                                className={`min-w-0 w-full text-sm rounded-lg px-2 py-2 border ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300'}`} />
-                            </label>
-                            <label className={`flex items-center gap-2 text-xs ${muted}`}>
-                              <span>End</span>
-                              <input type="text" inputMode="numeric" maxLength="5" placeholder="HH:MM" aria-label={`End time for ${loc}`} value={times.end || ''}
-                                onChange={(e) => setCE({ locationTimes: { ...ce.locationTimes, [loc]: { ...times, end: e.target.value } } })}
-                                className={`min-w-0 w-full text-sm rounded-lg px-2 py-2 border ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300'}`} />
-                            </label>
+                            {[
+                              ['start', 'Start', startParts],
+                              ['end', 'End', endParts]
+                            ].map(([field, label, parts]) => (
+                              <fieldset key={field} className="min-w-0">
+                                <legend className={`mb-1 text-xs ${muted}`}>{label}</legend>
+                                <div className="flex items-center gap-1">
+                                  <input type="text" inputMode="numeric" maxLength="2" placeholder="HH" aria-label={`${label} hour for ${loc}`} value={parts.hour}
+                                    onChange={(e) => updateTimePart(field, 'hour', e.target.value.replace(/\D/g, '').slice(0, 2))}
+                                    className={timeInputClass} />
+                                  <span className={muted}>:</span>
+                                  <input type="text" inputMode="numeric" maxLength="2" placeholder="MM" aria-label={`${label} minute for ${loc}`} value={parts.minute}
+                                    onChange={(e) => updateTimePart(field, 'minute', e.target.value.replace(/\D/g, '').slice(0, 2))}
+                                    className={timeInputClass} />
+                                  <div className={`ml-1 flex rounded-lg border p-0.5 ${border}`} role="group" aria-label={`${label} AM or PM for ${loc}`}>
+                                    {['AM', 'PM'].map(period => (
+                                      <button key={period} type="button" aria-pressed={parts.period === period}
+                                        onClick={() => updateTimePart(field, 'period', period)}
+                                        className={`rounded-md px-2 py-1.5 text-xs font-medium ${parts.period === period ? 'bg-blue-600 text-white' : muted}`}>
+                                        {period}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              </fieldset>
+                            ))}
                           </div>
                         );
                       })}
