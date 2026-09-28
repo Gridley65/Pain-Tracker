@@ -74,12 +74,14 @@
       const DEFAULT_TRIGGERS = ['Daily Exertion', 'Exercise', 'Weather', 'Bright Light', 'Flickering Light', 'Loud Noise', 'Strong Smells', 'Screen Time', 'Alcohol', 'Certain Foods'];
       const DEFAULT_IMPACT = ['Had to rest or lie down', 'Cancelled or avoided activities', 'Missed work or obligations', 'Difficult to concentrate', 'Affected my mood', 'Withdrew from others', 'Needed help from others'];
       const DEFAULT_CONTRIBUTING = ['Dehydration', 'Skipped Meals', 'Neck Tension', 'Anxiety', 'Hormonal'];
-      const DEFAULT_PAIN_TYPES = ['Sharp', 'Stabbing', 'Pressure', 'Throbbing', 'Dull', 'Aching', 'Burning', 'Shooting', 'Electric', 'Tingling', 'Cramping'];
+      const DEFAULT_PAIN_TYPES = ['Sharp', 'Stabbing', 'Pressure', 'Throbbing', 'Dull', 'Aching', 'Burning', 'Shooting', 'Electric', 'Tingling', 'Cramping', 'Gnawing', 'Lancing'];
+      const DEFAULT_PAIN_CHARACTERISTICS = ['Constant', 'Intermitent', 'Moving', 'Predictable', 'Unpredictable'];
 
       const emptyEntry = () => ({
         painLevels: [],
         locations: [],
         locationPainTypes: {},
+        locationPainCharacteristics: {},
         locationTimes: {},
         contributing: { sleep: null, stress: null, fatigue: null, caffeine: null, simple: [] },
         triggers: [], foodNote: '', weather: { pressure: '', trend: null, tempChange: false, wind: false, notes: '' },
@@ -168,6 +170,10 @@
         const [removedPainTypes, setRemovedPainTypes] = useState([]);
         const [showPainTypeCustomize, setShowPainTypeCustomize] = useState(false);
         const [newPainTypeText, setNewPainTypeText] = useState('');
+        const [painCharacteristics, setPainCharacteristics] = useState(DEFAULT_PAIN_CHARACTERISTICS);
+        const [removedPainCharacteristics, setRemovedPainCharacteristics] = useState([]);
+        const [showPainCharacteristicsCustomize, setShowPainCharacteristicsCustomize] = useState(false);
+        const [newPainCharacteristicText, setNewPainCharacteristicText] = useState('');
 
         useEffect(() => {
           const savedLocations = storage.get('customLocations'); if (savedLocations) setLocations(savedLocations);
@@ -178,8 +184,15 @@
           const savedRemovedImpact = storage.get('removedImpact'); if (savedRemovedImpact) setRemovedImpact(savedRemovedImpact);
           const savedContributing = storage.get('customContributing'); if (savedContributing) setContributingItems(savedContributing);
           const savedRemovedContributing = storage.get('removedContributing'); if (savedRemovedContributing) setRemovedContributing(savedRemovedContributing);
-          const savedPainTypes = storage.get('customPainTypes'); if (savedPainTypes) setPainTypes(savedPainTypes);
-          const savedRemovedPainTypes = storage.get('removedPainTypes'); if (savedRemovedPainTypes) setRemovedPainTypes(savedRemovedPainTypes);
+          const savedPainTypes = storage.get('customPainTypes');
+          const savedRemovedPainTypes = storage.get('removedPainTypes') || [];
+          const activePainTypes = savedPainTypes || DEFAULT_PAIN_TYPES;
+          const mergedPainTypes = [...activePainTypes, ...DEFAULT_PAIN_TYPES.filter(pt => !activePainTypes.includes(pt) && !savedRemovedPainTypes.includes(pt))];
+          setPainTypes(mergedPainTypes);
+          setRemovedPainTypes(savedRemovedPainTypes);
+          if (savedPainTypes) storage.set('customPainTypes', mergedPainTypes);
+          const savedPainCharacteristics = storage.get('customPainCharacteristics'); if (savedPainCharacteristics) setPainCharacteristics(savedPainCharacteristics);
+          const savedRemovedPainCharacteristics = storage.get('removedPainCharacteristics'); if (savedRemovedPainCharacteristics) setRemovedPainCharacteristics(savedRemovedPainCharacteristics);
 
           const testSave = storage.set('_test', 1);
           if (!testSave) setStorageWarning(true);
@@ -225,13 +238,16 @@
           saveLocations(locations.filter(l => l !== loc), [...removedLocations, loc]);
           if (currentEntry?.locations?.includes(loc)) {
             const locationPainTypes = { ...currentEntry.locationPainTypes };
+            const locationPainCharacteristics = { ...currentEntry.locationPainCharacteristics };
             const locationTimes = { ...currentEntry.locationTimes };
             delete locationPainTypes[loc];
+            delete locationPainCharacteristics[loc];
             delete locationTimes[loc];
             setCurrentEntry({
               ...currentEntry,
               locations: currentEntry.locations.filter(l => l !== loc),
               locationPainTypes,
+              locationPainCharacteristics,
               locationTimes
             });
           }
@@ -343,6 +359,40 @@
           setNewPainTypeText('');
         };
 
+        const savePainCharacteristics = (nextItems, nextRemoved) => {
+          setPainCharacteristics(nextItems);
+          setRemovedPainCharacteristics(nextRemoved);
+          storage.set('customPainCharacteristics', nextItems);
+          storage.set('removedPainCharacteristics', nextRemoved);
+        };
+
+        const removePainCharacteristic = (item) => {
+          if (!painCharacteristics.includes(item)) return;
+          savePainCharacteristics(painCharacteristics.filter(value => value !== item), [...removedPainCharacteristics, item]);
+          if (currentEntry?.locationPainCharacteristics) {
+            const updated = { ...currentEntry.locationPainCharacteristics };
+            Object.keys(updated).forEach(loc => {
+              const selected = Array.isArray(updated[loc]) ? updated[loc] : [updated[loc]];
+              const remaining = selected.filter(value => value !== item);
+              if (remaining.length) updated[loc] = remaining;
+              else delete updated[loc];
+            });
+            setCurrentEntry({ ...currentEntry, locationPainCharacteristics: updated });
+          }
+        };
+
+        const restorePainCharacteristic = (item) => {
+          if (!removedPainCharacteristics.includes(item)) return;
+          savePainCharacteristics([...painCharacteristics, item], removedPainCharacteristics.filter(value => value !== item));
+        };
+
+        const addPainCharacteristic = () => {
+          const next = newPainCharacteristicText.trim();
+          if (!next || painCharacteristics.includes(next)) return;
+          savePainCharacteristics([...painCharacteristics, next], removedPainCharacteristics.filter(value => value !== next));
+          setNewPainCharacteristicText('');
+        };
+
         useEffect(() => {
           if (selectedDate) {
             const key = dateToKey(selectedDate);
@@ -351,6 +401,7 @@
               painLevels: ex.painLevels || [],
               locations: ex.locations || [],
               locationPainTypes: ex.locationPainTypes || {},
+              locationPainCharacteristics: ex.locationPainCharacteristics || {},
               locationTimes: ex.locationTimes || {},
               contributing: ex.contributing || { sleep: null, stress: null, fatigue: null, caffeine: null, simple: [] },
               triggers: ex.triggers || [],
@@ -615,12 +666,14 @@
                             onClick={() => {
                               const newLocs = isSelected ? ce.locations.filter(x => x !== l) : [...ce.locations, l];
                               const newPainTypes = { ...ce.locationPainTypes };
+                              const newPainCharacteristics = { ...ce.locationPainCharacteristics };
                               const newLocationTimes = { ...ce.locationTimes };
                               if (isSelected) {
                                 delete newPainTypes[l];
+                                delete newPainCharacteristics[l];
                                 delete newLocationTimes[l];
                               }
-                              setCE({ locations: newLocs, locationPainTypes: newPainTypes, locationTimes: newLocationTimes });
+                              setCE({ locations: newLocs, locationPainTypes: newPainTypes, locationPainCharacteristics: newPainCharacteristics, locationTimes: newLocationTimes });
                             }}
                             className={`px-3 py-2 text-sm rounded-lg border-2 ${isSelected ? 'bg-blue-500 border-blue-600 text-white' : 'bg-white border-gray-200 text-gray-800'}`}>
                             {l}
@@ -649,7 +702,7 @@
                             <span className={`text-sm font-medium ${text}`}>{loc}</span>
                             <details className="min-w-0">
                               <summary className={`cursor-pointer rounded-lg border px-2 py-2 text-sm ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300'}`}>
-                                {selectedPainTypes.length ? selectedPainTypes.join(', ') : 'Pain types (optional)'}
+                                {selectedPainTypes.length ? selectedPainTypes.join(', ') : 'Pain types'}
                               </summary>
                               <div className={`mt-2 grid grid-cols-2 gap-2 rounded-lg border ${border} p-2`}>
                                 {painTypes.map(pt => (
@@ -668,6 +721,32 @@
                                     <span className="truncate">{pt}</span>
                                   </label>
                                 ))}
+                              </div>
+                            </details>
+                            <details className="min-w-0">
+                              <summary className={`cursor-pointer rounded-lg border px-2 py-2 text-sm ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300'}`}>
+                                {(Array.isArray(ce.locationPainCharacteristics?.[loc]) ? ce.locationPainCharacteristics[loc] : []).length
+                                  ? ce.locationPainCharacteristics[loc].join(', ')
+                                  : 'Other Characteristics'}
+                              </summary>
+                              <div className={`mt-2 grid grid-cols-2 gap-2 rounded-lg border ${border} p-2`}>
+                                {painCharacteristics.map(item => {
+                                  const selected = Array.isArray(ce.locationPainCharacteristics?.[loc]) ? ce.locationPainCharacteristics[loc] : [];
+                                  return (
+                                    <label key={item} className={`flex min-w-0 items-center gap-2 text-sm ${text}`}>
+                                      <input type="checkbox" checked={selected.includes(item)}
+                                        onChange={() => {
+                                          const nextItems = selected.includes(item) ? selected.filter(value => value !== item) : [...selected, item];
+                                          const locationPainCharacteristics = { ...ce.locationPainCharacteristics };
+                                          if (nextItems.length) locationPainCharacteristics[loc] = nextItems;
+                                          else delete locationPainCharacteristics[loc];
+                                          setCE({ locationPainCharacteristics });
+                                        }}
+                                        className="shrink-0" />
+                                      <span className="truncate">{item}</span>
+                                    </label>
+                                  );
+                                })}
                               </div>
                             </details>
                             {[
@@ -744,12 +823,12 @@
                 {/* Pain Types */}
                 <div className="order-3">
                   <div className="flex items-center justify-between">
-                    <h3 className={sectionTitle}>Pain Types</h3>
+                    <h3 className={sectionTitle}>Characteristics of Pain</h3>
                     <button type="button" onClick={() => setShowPainTypeCustomize(!showPainTypeCustomize)} className="text-sm font-medium text-blue-600 hover:underline">
                       {showPainTypeCustomize ? 'Close' : 'Personalize'}
                     </button>
                   </div>
-                  <p className={`text-xs ${muted} mb-4`}>Customize the types of pain you can select for each location.</p>
+                  <p className={`text-xs ${muted} mb-4`}>Customize the pain types and other characteristics available for each location.</p>
                   <div className={`overflow-hidden transition-all duration-300 ${showPainTypeCustomize ? 'max-h-screen opacity-100 mt-4' : 'max-h-0 opacity-0'} `}>
                     <div className={`${showPainTypeCustomize ? 'pb-4' : 'pb-0'} space-y-4 max-h-96 overflow-y-auto`}>
                       <div className={`rounded-xl border ${border} ${card} p-4`}>
@@ -784,6 +863,52 @@
                           <button type="button" onClick={addPainType} className="rounded-lg bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700 disabled:bg-blue-300" disabled={!newPainTypeText.trim()}>
                             Add
                           </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className={`text-sm font-semibold ${text}`}>Other Characteristics</h4>
+                      <button type="button" onClick={() => setShowPainCharacteristicsCustomize(!showPainCharacteristicsCustomize)} className="text-sm font-medium text-blue-600 hover:underline">
+                        {showPainCharacteristicsCustomize ? 'Close' : 'Personalize'}
+                      </button>
+                    </div>
+                    <div className={`overflow-hidden transition-all duration-300 ${showPainCharacteristicsCustomize ? 'max-h-screen opacity-100 mt-3' : 'max-h-0 opacity-0'}`}>
+                      <div className={`${showPainCharacteristicsCustomize ? 'pb-4' : 'pb-0'} space-y-4 max-h-96 overflow-y-auto`}>
+                        <div className={`rounded-xl border ${border} ${card} p-4`}>
+                          <div className="flex flex-wrap gap-2">
+                            {painCharacteristics.map(item => (
+                              <div key={item} className={`flex items-center gap-2 rounded-full border px-3 py-2 ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+                                <span className={`text-sm ${text}`}>{item}</span>
+                                <button type="button" onClick={() => removePainCharacteristic(item)} className="text-sm text-red-500 hover:text-red-700">✕</button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {removedPainCharacteristics.length > 0 && (
+                          <div className={`rounded-xl border ${border} ${card} p-4`}>
+                            <h4 className={`text-sm font-semibold mb-3 ${text}`}>Removed Presets</h4>
+                            <div className="space-y-2">
+                              {removedPainCharacteristics.map(item => (
+                                <button key={item} type="button" onClick={() => restorePainCharacteristic(item)} className="flex items-center gap-2 rounded-full border px-3 py-2 text-sm text-blue-600 hover:bg-blue-50">
+                                  <span className="text-lg">+</span>
+                                  <span>Restore "{item}"</span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className={`rounded-xl border ${border} ${card} p-4`}>
+                          <h4 className={`text-sm font-semibold mb-3 ${text}`}>Add Your Own</h4>
+                          <div className="flex flex-col gap-2 sm:flex-row">
+                            <input type="text" value={newPainCharacteristicText} onChange={(e) => setNewPainCharacteristicText(e.target.value)} placeholder="Enter characteristic" className={inputCls} />
+                            <button type="button" onClick={addPainCharacteristic} className="rounded-lg bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700 disabled:bg-blue-300" disabled={!newPainCharacteristicText.trim()}>
+                              Add
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
