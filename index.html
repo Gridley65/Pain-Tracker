@@ -580,10 +580,10 @@
                 <h2 className={`text-xl font-medium ${text}`}>{selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</h2>
                 <button onClick={() => { setSelectedDate(null); setShowWeatherDetail(false); }} className="text-blue-600">Cancel</button>
               </div>
-              <div className="p-4 space-y-6 pb-24">
+              <div className="flex flex-col gap-6 p-4 pb-24">
 
                 {/* Pain Level */}
-                <div>
+                <div className="order-1">
                   <h3 className={sectionTitle}>Pain Level</h3>
                   {PAIN_LEVELS.map(({ level, color, title, desc }) => (
                     <button key={level}
@@ -598,7 +598,7 @@
                 </div>
 
                 {/* Pain Location */}
-                <div>
+                <div className="order-2">
                   <div className="flex items-center justify-between">
                     <h3 className={sectionTitle}>Pain Location</h3>
                     <button type="button" onClick={() => setShowLocationCustomize(!showLocationCustomize)} className="text-sm font-medium text-blue-600 hover:underline">
@@ -742,7 +742,7 @@
                 </div>
 
                 {/* Pain Types */}
-                <div>
+                <div className="order-3">
                   <div className="flex items-center justify-between">
                     <h3 className={sectionTitle}>Pain Types</h3>
                     <button type="button" onClick={() => setShowPainTypeCustomize(!showPainTypeCustomize)} className="text-sm font-medium text-blue-600 hover:underline">
@@ -791,7 +791,7 @@
                 </div>
 
                 {/* Contributing Factors */}
-                <div>
+                <div className="order-5">
                   <div className="flex items-center justify-between">
                     <h3 className={sectionTitle}>Contributing Factors</h3>
                     <button type="button" onClick={() => setShowContributingCustomize(!showContributingCustomize)} className="text-sm font-medium text-blue-600 hover:underline">
@@ -875,7 +875,7 @@
                 </div>
 
                 {/* Triggers */}
-                <div>
+                <div className="order-4">
                   <div className="flex items-center justify-between">
                     <h3 className={sectionTitle}>Triggers</h3>
                     <button type="button" onClick={() => setShowTriggerCustomize(!showTriggerCustomize)} className="text-sm font-medium text-blue-600 hover:underline">
@@ -953,7 +953,7 @@
                 </div>
 
                 {/* Impact */}
-                <div>
+                <div className="order-6">
                   <div className="flex items-center justify-between">
                     <h3 className={sectionTitle}>Impact</h3>
                     <button type="button" onClick={() => setShowImpactCustomize(!showImpactCustomize)} className="text-sm font-medium text-blue-600 hover:underline">
@@ -1009,27 +1009,27 @@
                 </div>
 
                 {/* Rescue Medications */}
-                <div>
+                <div className="order-8">
                   <h3 className={sectionTitle}>Medications Taken Today</h3>
                   <textarea value={ce.rescueMeds} onChange={(e) => e.target.value.length <= 240 && setCE({ rescueMeds: e.target.value })} className={inputCls} rows="3" placeholder="Medications taken in response to pain today..." />
                   <div className={`text-sm ${muted} text-right`}>{ce.rescueMeds.length}/240</div>
                 </div>
 
                 {/* Notes */}
-                <div>
+                <div className="order-7">
                   <h3 className={sectionTitle}>Notes</h3>
                   <textarea value={ce.notes} onChange={(e) => e.target.value.length <= 440 && setCE({ notes: e.target.value })} className={inputCls} rows="4" placeholder="Notes..." />
                   <div className={`text-sm ${muted} text-right`}>{ce.notes.length}/440</div>
                 </div>
 
                 {/* Appointments */}
-                <div>
+                <div className="order-9">
                   <h3 className={sectionTitle}>Medical Appointments</h3>
                   <textarea value={ce.appointments} onChange={(e) => e.target.value.length <= 440 && setCE({ appointments: e.target.value })} className={inputCls} rows="4" placeholder="Appointments, procedures, tests..." />
                   <div className={`text-sm ${muted} text-right`}>{ce.appointments.length}/440</div>
                 </div>
 
-                <button onClick={save} className="w-full bg-blue-600 text-white py-4 rounded-lg font-medium">Save Entry</button>
+                <button onClick={save} className="order-10 w-full bg-blue-600 text-white py-4 rounded-lg font-medium">Save Entry</button>
               </div>
             </div>
           );
