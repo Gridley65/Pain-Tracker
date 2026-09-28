@@ -201,7 +201,13 @@
           if (!locations.includes(loc)) return;
           saveLocations(locations.filter(l => l !== loc), [...removedLocations, loc]);
           if (currentEntry?.locations?.includes(loc)) {
-            setCurrentEntry({ ...currentEntry, locations: currentEntry.locations.filter(l => l !== loc) });
+            const locationPainTypes = { ...currentEntry.locationPainTypes };
+            delete locationPainTypes[loc];
+            setCurrentEntry({
+              ...currentEntry,
+              locations: currentEntry.locations.filter(l => l !== loc),
+              locationPainTypes
+            });
           }
         };
 
@@ -562,43 +568,39 @@
                       const isSelected = ce.locations.includes(l);
                       const painType = ce.locationPainTypes?.[l] || '';
                       return (
-                        <div key={l} className="inline-block">
+                        <div key={l} className="inline-flex items-center gap-2">
                           <button
                             type="button"
                             onClick={() => {
                               const newLocs = isSelected ? ce.locations.filter(x => x !== l) : [...ce.locations, l];
                               const newPainTypes = { ...ce.locationPainTypes };
-                              if (!isSelected) {
-                                // Location being added, keep existing pain type or leave empty
-                              } else {
-                                // Location being removed, clear its pain type
+                              if (isSelected) {
                                 delete newPainTypes[l];
                               }
                               setCE({ locations: newLocs, locationPainTypes: newPainTypes });
                             }}
                             className={`px-3 py-2 text-sm rounded-lg border-2 ${isSelected ? 'bg-blue-500 border-blue-600 text-white' : 'bg-white border-gray-200 text-gray-800'}`}>
-                            {l} {painType && <span className={isSelected ? 'text-blue-100' : 'text-blue-500'}>• {painType}</span>}
+                            {l}
                           </button>
                           {isSelected && (
-                            <div className="mt-1 ml-0">
-                              <select
-                                value={painType}
-                                onChange={(e) => {
-                                  const newPainTypes = { ...ce.locationPainTypes };
-                                  if (e.target.value) {
-                                    newPainTypes[l] = e.target.value;
-                                  } else {
-                                    delete newPainTypes[l];
-                                  }
-                                  setCE({ locationPainTypes: newPainTypes });
-                                }}
-                                className={`text-xs rounded px-2 py-1 border ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300'}`}>
-                                <option value="">Select pain type...</option>
-                                {painTypes.map(pt => (
-                                  <option key={pt} value={pt}>{pt}</option>
-                                ))}
-                              </select>
-                            </div>
+                            <select
+                              aria-label={`Pain type for ${l}`}
+                              value={painType}
+                              onChange={(e) => {
+                                const newPainTypes = { ...ce.locationPainTypes };
+                                if (e.target.value) {
+                                  newPainTypes[l] = e.target.value;
+                                } else {
+                                  delete newPainTypes[l];
+                                }
+                                setCE({ locationPainTypes: newPainTypes });
+                              }}
+                              className={`text-sm rounded-lg px-2 py-2 border ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300'}`}>
+                              <option value="">Pain type (optional)</option>
+                              {painTypes.map(pt => (
+                                <option key={pt} value={pt}>{pt}</option>
+                              ))}
+                            </select>
                           )}
                         </div>
                       );
