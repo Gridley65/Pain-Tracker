@@ -300,7 +300,10 @@
           if (currentEntry?.locationPainTypes) {
             const updated = { ...currentEntry.locationPainTypes };
             Object.keys(updated).forEach(loc => {
-              if (updated[loc] === pt) delete updated[loc];
+              const selectedTypes = Array.isArray(updated[loc]) ? updated[loc] : [updated[loc]];
+              const remainingTypes = selectedTypes.filter(type => type !== pt);
+              if (remainingTypes.length) updated[loc] = remainingTypes;
+              else delete updated[loc];
             });
             setCurrentEntry({ ...currentEntry, locationPainTypes: updated });
           }
@@ -341,6 +344,14 @@
 
         const save = () => {
           if (!selectedDate || !currentEntry) return;
+          const validTime = value => !value || /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+          const hasInvalidLocationTime = Object.values(currentEntry.locationTimes || {}).some(times =>
+            !validTime(times.start) || !validTime(times.end)
+          );
+          if (hasInvalidLocationTime) {
+            alert('Enter times in 24-hour HH:MM format, or leave them blank.');
+            return;
+          }
           const key = dateToKey(selectedDate);
           const isoDate = dateToISO(selectedDate);
           const oldEntry = entries[key];
@@ -595,33 +606,44 @@
                   {ce.locations.length > 0 && (
                     <div className="mt-3 space-y-2">
                       {ce.locations.map(loc => {
-                        const painType = ce.locationPainTypes?.[loc] || '';
+                        const savedPainTypes = ce.locationPainTypes?.[loc];
+                        const selectedPainTypes = Array.isArray(savedPainTypes) ? savedPainTypes : savedPainTypes ? [savedPainTypes] : [];
                         const times = ce.locationTimes?.[loc] || { start: '', end: '' };
                         return (
                           <div key={loc} className={`grid grid-cols-1 sm:grid-cols-[minmax(8rem,1fr)_minmax(10rem,1.25fr)_minmax(8rem,1fr)_minmax(8rem,1fr)] items-center gap-2 rounded-lg border ${border} ${card} p-3`}>
                             <span className={`text-sm font-medium ${text}`}>{loc}</span>
-                            <select
-                              aria-label={`Pain type for ${loc}`}
-                              value={painType}
-                              onChange={(e) => {
-                                const locationPainTypes = { ...ce.locationPainTypes };
-                                if (e.target.value) locationPainTypes[loc] = e.target.value;
-                                else delete locationPainTypes[loc];
-                                setCE({ locationPainTypes });
-                              }}
-                              className={`w-full text-sm rounded-lg px-2 py-2 border ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300'}`}>
-                              <option value="">Pain type (optional)</option>
-                              {painTypes.map(pt => <option key={pt} value={pt}>{pt}</option>)}
-                            </select>
+                            <details className="min-w-0">
+                              <summary className={`cursor-pointer rounded-lg border px-2 py-2 text-sm ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300'}`}>
+                                {selectedPainTypes.length ? selectedPainTypes.join(', ') : 'Pain types (optional)'}
+                              </summary>
+                              <div className={`mt-2 grid grid-cols-2 gap-2 rounded-lg border ${border} p-2`}>
+                                {painTypes.map(pt => (
+                                  <label key={pt} className={`flex min-w-0 items-center gap-2 text-sm ${text}`}>
+                                    <input type="checkbox" checked={selectedPainTypes.includes(pt)}
+                                      onChange={() => {
+                                        const nextTypes = selectedPainTypes.includes(pt)
+                                          ? selectedPainTypes.filter(type => type !== pt)
+                                          : [...selectedPainTypes, pt];
+                                        const locationPainTypes = { ...ce.locationPainTypes };
+                                        if (nextTypes.length) locationPainTypes[loc] = nextTypes;
+                                        else delete locationPainTypes[loc];
+                                        setCE({ locationPainTypes });
+                                      }}
+                                      className="shrink-0" />
+                                    <span className="truncate">{pt}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </details>
                             <label className={`flex items-center gap-2 text-xs ${muted}`}>
                               <span>Start</span>
-                              <input type="time" aria-label={`Start time for ${loc}`} value={times.start || ''}
+                              <input type="text" inputMode="numeric" maxLength="5" placeholder="HH:MM" aria-label={`Start time for ${loc}`} value={times.start || ''}
                                 onChange={(e) => setCE({ locationTimes: { ...ce.locationTimes, [loc]: { ...times, start: e.target.value } } })}
                                 className={`min-w-0 w-full text-sm rounded-lg px-2 py-2 border ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300'}`} />
                             </label>
                             <label className={`flex items-center gap-2 text-xs ${muted}`}>
                               <span>End</span>
-                              <input type="time" aria-label={`End time for ${loc}`} value={times.end || ''}
+                              <input type="text" inputMode="numeric" maxLength="5" placeholder="HH:MM" aria-label={`End time for ${loc}`} value={times.end || ''}
                                 onChange={(e) => setCE({ locationTimes: { ...ce.locationTimes, [loc]: { ...times, end: e.target.value } } })}
                                 className={`min-w-0 w-full text-sm rounded-lg px-2 py-2 border ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300'}`} />
                             </label>
