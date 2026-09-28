@@ -80,6 +80,7 @@
         painLevels: [],
         locations: [],
         locationPainTypes: {},
+        locationTimes: {},
         contributing: { sleep: null, stress: null, fatigue: null, caffeine: null, simple: [] },
         triggers: [], foodNote: '', weather: { pressure: '', trend: null, tempChange: false, wind: false, notes: '' },
         impact: { simple: [] },
@@ -202,11 +203,14 @@
           saveLocations(locations.filter(l => l !== loc), [...removedLocations, loc]);
           if (currentEntry?.locations?.includes(loc)) {
             const locationPainTypes = { ...currentEntry.locationPainTypes };
+            const locationTimes = { ...currentEntry.locationTimes };
             delete locationPainTypes[loc];
+            delete locationTimes[loc];
             setCurrentEntry({
               ...currentEntry,
               locations: currentEntry.locations.filter(l => l !== loc),
-              locationPainTypes
+              locationPainTypes,
+              locationTimes
             });
           }
         };
@@ -322,6 +326,7 @@
               painLevels: ex.painLevels || [],
               locations: ex.locations || [],
               locationPainTypes: ex.locationPainTypes || {},
+              locationTimes: ex.locationTimes || {},
               contributing: ex.contributing || { sleep: null, stress: null, fatigue: null, caffeine: null, simple: [] },
               triggers: ex.triggers || [],
               foodNote: ex.foodNote || '',
@@ -566,46 +571,65 @@
                   <div className="flex gap-2 flex-wrap">
                     {locations.map(l => {
                       const isSelected = ce.locations.includes(l);
-                      const painType = ce.locationPainTypes?.[l] || '';
                       return (
-                        <div key={l} className="inline-flex items-center gap-2">
+                        <div key={l}>
                           <button
                             type="button"
                             onClick={() => {
                               const newLocs = isSelected ? ce.locations.filter(x => x !== l) : [...ce.locations, l];
                               const newPainTypes = { ...ce.locationPainTypes };
+                              const newLocationTimes = { ...ce.locationTimes };
                               if (isSelected) {
                                 delete newPainTypes[l];
+                                delete newLocationTimes[l];
                               }
-                              setCE({ locations: newLocs, locationPainTypes: newPainTypes });
+                              setCE({ locations: newLocs, locationPainTypes: newPainTypes, locationTimes: newLocationTimes });
                             }}
                             className={`px-3 py-2 text-sm rounded-lg border-2 ${isSelected ? 'bg-blue-500 border-blue-600 text-white' : 'bg-white border-gray-200 text-gray-800'}`}>
                             {l}
                           </button>
-                          {isSelected && (
-                            <select
-                              aria-label={`Pain type for ${l}`}
-                              value={painType}
-                              onChange={(e) => {
-                                const newPainTypes = { ...ce.locationPainTypes };
-                                if (e.target.value) {
-                                  newPainTypes[l] = e.target.value;
-                                } else {
-                                  delete newPainTypes[l];
-                                }
-                                setCE({ locationPainTypes: newPainTypes });
-                              }}
-                              className={`text-sm rounded-lg px-2 py-2 border ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300'}`}>
-                              <option value="">Pain type (optional)</option>
-                              {painTypes.map(pt => (
-                                <option key={pt} value={pt}>{pt}</option>
-                              ))}
-                            </select>
-                          )}
                         </div>
                       );
                     })}
                   </div>
+                  {ce.locations.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      {ce.locations.map(loc => {
+                        const painType = ce.locationPainTypes?.[loc] || '';
+                        const times = ce.locationTimes?.[loc] || { start: '', end: '' };
+                        return (
+                          <div key={loc} className={`grid grid-cols-1 sm:grid-cols-[minmax(8rem,1fr)_minmax(10rem,1.25fr)_minmax(8rem,1fr)_minmax(8rem,1fr)] items-center gap-2 rounded-lg border ${border} ${card} p-3`}>
+                            <span className={`text-sm font-medium ${text}`}>{loc}</span>
+                            <select
+                              aria-label={`Pain type for ${loc}`}
+                              value={painType}
+                              onChange={(e) => {
+                                const locationPainTypes = { ...ce.locationPainTypes };
+                                if (e.target.value) locationPainTypes[loc] = e.target.value;
+                                else delete locationPainTypes[loc];
+                                setCE({ locationPainTypes });
+                              }}
+                              className={`w-full text-sm rounded-lg px-2 py-2 border ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300'}`}>
+                              <option value="">Pain type (optional)</option>
+                              {painTypes.map(pt => <option key={pt} value={pt}>{pt}</option>)}
+                            </select>
+                            <label className={`flex items-center gap-2 text-xs ${muted}`}>
+                              <span>Start</span>
+                              <input type="time" aria-label={`Start time for ${loc}`} value={times.start || ''}
+                                onChange={(e) => setCE({ locationTimes: { ...ce.locationTimes, [loc]: { ...times, start: e.target.value } } })}
+                                className={`min-w-0 w-full text-sm rounded-lg px-2 py-2 border ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300'}`} />
+                            </label>
+                            <label className={`flex items-center gap-2 text-xs ${muted}`}>
+                              <span>End</span>
+                              <input type="time" aria-label={`End time for ${loc}`} value={times.end || ''}
+                                onChange={(e) => setCE({ locationTimes: { ...ce.locationTimes, [loc]: { ...times, end: e.target.value } } })}
+                                className={`min-w-0 w-full text-sm rounded-lg px-2 py-2 border ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300'}`} />
+                            </label>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                   <div className={`overflow-hidden transition-all duration-300 ${showLocationCustomize ? 'max-h-screen opacity-100 mt-4' : 'max-h-0 opacity-0'} `}>
                     <div className={`${showLocationCustomize ? 'pb-4' : 'pb-0'} space-y-4 max-h-96 overflow-y-auto`}>
                       <div className={`rounded-xl border ${border} ${card} p-4`}>
