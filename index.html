@@ -730,13 +730,13 @@
                             </button>
                             </div>
                             <div className="flex min-w-0 items-start gap-2">
-                            <details className="min-w-0 flex-1">
+                            <details className="relative min-w-0 flex-1">
                               <summary className={`cursor-pointer rounded-lg border px-2 py-2 text-sm ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300'}`}>
                                 {(Array.isArray(ce.locationPainCharacteristics?.[loc]) ? ce.locationPainCharacteristics[loc] : []).length
                                   ? ce.locationPainCharacteristics[loc].join(', ')
                                   : 'Other Characteristics'}
                               </summary>
-                              <div className={`mt-2 grid grid-cols-2 gap-2 rounded-lg border ${border} p-2`}>
+                              <div className={`absolute left-0 top-full z-30 mt-2 grid w-[calc(100%+5.5rem)] max-w-[34rem] grid-cols-1 gap-2 rounded-lg border ${border} ${card} p-3 sm:grid-cols-2`}>
                                 {painCharacteristics.map(item => {
                                   const selected = Array.isArray(ce.locationPainCharacteristics?.[loc]) ? ce.locationPainCharacteristics[loc] : [];
                                   return (
@@ -750,7 +750,7 @@
                                           setCE({ locationPainCharacteristics });
                                         }}
                                         className="shrink-0" />
-                                      <span className="truncate">{item}</span>
+                                      <span className="whitespace-normal">{item}</span>
                                     </label>
                                   );
                                 })}
@@ -1091,7 +1091,7 @@
                 {/* Impact */}
                 <div className="order-6">
                   <div className="flex items-center justify-between">
-                    <h3 className={sectionTitle}>Impact</h3>
+                    <h3 className={sectionTitle}>Impact on Daily Life</h3>
                     <button type="button" onClick={() => setShowImpactCustomize(!showImpactCustomize)} className="text-sm font-medium text-blue-600 hover:underline">
                       {showImpactCustomize ? 'Close' : 'Personalize'}
                     </button>
